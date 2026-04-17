@@ -47,11 +47,12 @@ function extractJson(text: string): any {
   throw new Error('Incomplete JSON object in model response');
 }
 
+// Active models from benchmark (2025-01-17)
 const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',
-  'mixtral-8x7b-32768',
-  'llama-3.1-8b-instant',
-  'gemma2-9b-it'
+  'llama-3.1-8b-instant',      // Fast, reliable
+  'llama-3.3-70b-versatile',   // Robust fallback
+  'openai/gpt-oss-120b',       // Backup
+  'openai/gpt-oss-20b'         // Last resort
 ];
 
 async function callGroq(
