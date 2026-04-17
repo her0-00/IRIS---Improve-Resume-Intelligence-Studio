@@ -14,7 +14,9 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     
     return new Promise<NextResponse>((resolve) => {
-      const pythonScript = path.resolve(process.cwd(), '../backend/extractor.py');
+      // In Docker: /app/web (cwd) -> /app/backend
+      const pythonScript = path.resolve(process.cwd(), '..', 'backend', 'extractor.py');
+      console.log('[extract] Python script path:', pythonScript);
       const pyProcess = spawn('python', [pythonScript]);
       
       let outputData = '';
@@ -30,8 +32,10 @@ export async function POST(req: Request) {
       
       pyProcess.on('close', (code) => {
         if (code !== 0) {
-          console.error('Python Extractor Error:', errorData);
-          return resolve(NextResponse.json({ error: 'Python Extractor Failed', details: errorData }, { status: 500 }));
+          console.error('[extract] Python exit code:', code);
+          console.error('[extract] Python stderr:', errorData);
+          console.error('[extract] Python stdout:', outputData);
+          return resolve(NextResponse.json({ error: 'Python Extractor Failed', details: errorData || 'No error output' }, { status: 500 }));
         }
         
         try {

@@ -21,17 +21,19 @@ export async function POST(req: Request) {
     fs.writeFileSync(tmpIn, JSON.stringify(data), 'utf8');
     console.log(`[generate_cv] [${requestId}] payload size:`, JSON.stringify(data).length, 'theme:', data.theme);
 
-    // Normalize paths
-    const pythonScript = path.resolve(process.cwd(), '../backend/worker.py');
+    // Normalize paths - In Docker: /app/web (cwd) -> /app/backend
+    const pythonScript = path.resolve(process.cwd(), '..', 'backend', 'worker.py');
+    console.log(`[generate_cv] [${requestId}] Python script:`, pythonScript);
     const tmpInNorm  = tmpIn!.replace(/\\/g, '/');
     const tmpOutNorm = tmpOut!.replace(/\\/g, '/');
 
     return new Promise<NextResponse>((resolve) => {
-      // Try 'python3' as fallback if 'python' fails in some Linux environments
+      // Try 'python' (symlinked in Dockerfile)
       const pyProcess = spawn('python', [pythonScript, tmpInNorm, tmpOutNorm]);
 
       let errorData = '';
       pyProcess.stderr.on('data', (chunk) => { errorData += chunk.toString(); });
+      pyProcess.stdout.on('data', (chunk) => { console.log(`[generate_cv] [${requestId}] stdout:`, chunk.toString()); });
 
       pyProcess.on('error', (err) => {
         console.error(`[generate_cv] [${requestId}] spawn error:`, err);
