@@ -47,6 +47,9 @@ def main():
             if not isinstance(e.get("location"), str): e["location"] = ""
             for f in ["role", "company", "period"]:
                 if not isinstance(e.get(f), str): e[f] = e.get(f) or ""
+            # Sanitize period: replace Private Use Area characters with dash
+            import re
+            e["period"] = re.sub(r'[\uE000-\uF8FF]', '-', e["period"])
             cv_data["experiences"].append(e)
 
         education = [e for e in (cv_data.get("education") or []) if isinstance(e, (dict, str))]

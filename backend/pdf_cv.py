@@ -138,9 +138,15 @@ def _sanitize_text(text: str) -> str:
         '\u201c': '"',
         '\u201d': '"',
         '\u2026': '...',
+        '\uf000': '-',  # Private Use Area character often used as dash
+        '\uf001': '-',
+        '\uf002': '-',
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
+    # Remove any remaining Private Use Area characters (U+E000 to U+F8FF)
+    import re
+    text = re.sub(r'[\uE000-\uF8FF]', '-', text)
     return text
 
 
