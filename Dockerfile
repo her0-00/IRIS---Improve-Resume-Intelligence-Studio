@@ -34,6 +34,9 @@ COPY . .
 WORKDIR /app/web
 RUN npm run build
 
-EXPOSE 3000
+EXPOSE 10000
+
+# Verify Python installation
+RUN python --version && pip3 --version
 
 CMD ["npm", "start"]
