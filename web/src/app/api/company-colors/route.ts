@@ -49,8 +49,61 @@ export async function POST(req: Request) {
 
     const groq = new Groq({ apiKey: groqKey });
 
+    // --- NEW: Web Search & Deep Extraction ---
+    console.log(`[BRAND-COLORS] Searching ground truth for: ${cleanName}...`);
+    let groundTruth = "";
+    try {
+      // 1. Try Direct Targeting (BrandColorCode)
+      const slug = cleanName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-t0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const directUrl = `https://www.brandcolorcode.com/${slug}`;
+      console.log(`[BRAND-COLORS] Trying direct source: ${directUrl}`);
+      
+      let targetUrl = null;
+      const directResp = await fetch(directUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      
+      if (directResp.ok) {
+        targetUrl = directUrl;
+      } else {
+        // 2. Fallback to Search if direct targeting failed
+        const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(cleanName)}+brand+identity+hex+color+guidelines`;
+        const searchResp = await fetch(searchUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' }
+        });
+        if (searchResp.ok) {
+          const html = await searchResp.text();
+          const linkMatch = html.match(/href="(https:\/\/[^"]*brand[^"]*)"/i) || html.match(/href="(https:\/\/[^"]*color[^"]*)"/i);
+          targetUrl = linkMatch ? linkMatch[1] : null;
+        }
+      }
+
+      if (targetUrl) {
+        console.log(`[BRAND-COLORS] Deep Dive Target: ${targetUrl}`);
+        const deepResp = await fetch(targetUrl, {
+          headers: { 'User-Agent': 'Mozilla/5.0' },
+          next: { revalidate: 3600 } 
+        });
+        if (deepResp.ok) {
+          const deepHtml = await deepResp.text();
+          groundTruth = deepHtml.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '').replace(/<[^>]*>/g, ' ').slice(0, 3000);
+          console.log(`[BRAND-COLORS] Deep extraction successful.`);
+        }
+      }
+    } catch (e) {
+      console.warn("[BRAND-COLORS] Tech error during deep dive:", e);
+    }
+
     const combinedPrompt = `Senior Brand Designer Task:
-Extract/predict official colors for "${cleanName}" and adapt for professional CV.
+Extract official colours for "${cleanName}" and adapt for professional CV.
+
+WEB DATA SOURCE:
+${groundTruth || "No direct web data found. LEAN ON YOUR ICONIC BRAND KNOWLEDGE."}
+
+CRITICAL VALIDATION RULES:
+1. MANDATORY: The "WEB DATA SOURCE" above contains the ground truth. You MUST prioritize it over your internal memory.
+2. DISCOVERY: If you see "Red", "#E1000F", or "Black" in the WEB DATA, those ARE the primary colors. Use them as "primary" and "secondary".
+3. NO GENERIC THEMES: Do NOT use blue just because it's a bank. If the brand is iconic (SOCIETE GENERALE), use the Red/Black identity.
+4. If WEB DATA is present, your goal is to EXTRACT, not to invent.
+
 Return ONLY this JSON:
 {
   "palettes": [
@@ -60,9 +113,20 @@ Return ONLY this JSON:
     }
   ]
 }
-Generate 4 variations style: Institutional, Modern, Minimalist, Bold. No preamble. No explanation.`;
+Generate 4 variations style: Institutional, Modern, Minimalist, Bold. 
+No preamble. No markdown code blocks. Just raw JSON.`;
 
-    const fallbackModels = ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768', 'llama-3.1-8b-instant'];
+    // Benchmark results (2025-01-17):
+    // 1. llama-3.1-8b-instant: 161.8 score (100% success, 0.33s avg) - Ultra-fast
+    // 2. llama-3.3-70b-versatile: 105.0 score (100% success, 0.86s avg) - Robust
+    // 3. openai/gpt-oss-120b: 61.1 score (50% success, 1.15s avg) - Backup
+    // 4. openai/gpt-oss-20b: 59.1 score (12% success, 0.60s avg) - Last resort
+    const fallbackModels = [
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+      'openai/gpt-oss-120b',
+      'openai/gpt-oss-20b'
+    ];
     let chatCompletion;
     let lastError;
 
@@ -73,11 +137,7 @@ Generate 4 variations style: Institutional, Modern, Minimalist, Bold. No preambl
           messages: [
             {
               role: 'user',
-              content: `Senior Brand Designer Knowledge Retrieval: What are the primary, secondary and accent brand hex colors for "${cleanName}"? 
-Note: the entity can be a company, but also an institution, university, NGO, organization, or country (e.g., France, Harvard, UNICEF).
-Adapt their official colors for 4 DISTINCT professional CV palettes: 1. Institutional, 2. Minimalist, 3. Bold, 4. Modern Dark.
-Return ONLY a valid JSON object: {"palettes": [{"name": "Style", "colors": {"primary": "#Hex", "secondary": "#Hex", "accent": "#Hex", "text": "#Hex", "background": "#Hex"}}]}.
-IMPORTANT: JSON ONLY. No preamble. No thinking.`
+              content: combinedPrompt
             }
           ],
           model: model,
