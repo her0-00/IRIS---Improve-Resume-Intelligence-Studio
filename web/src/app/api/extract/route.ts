@@ -46,9 +46,25 @@ export async function POST(req: Request) {
         }
       });
       
+      pyProcess.on('error', (err) => {
+        console.error('Python Process Error:', err);
+        return resolve(NextResponse.json({ error: 'Failed to spawn Python process', details: err.message }, { status: 500 }));
+      });
+      
+      pyProcess.stdin.on('error', (err: any) => {
+        if (err.code !== 'EPIPE') {
+          console.error('Python stdin error:', err);
+        }
+      });
+      
       // Write binary data to python stdin
-      pyProcess.stdin.write(buffer);
-      pyProcess.stdin.end();
+      try {
+        pyProcess.stdin.write(buffer);
+        pyProcess.stdin.end();
+      } catch (err: any) {
+        console.error('Failed to write to Python stdin:', err);
+        return resolve(NextResponse.json({ error: 'Failed to send data to Python', details: err.message }, { status: 500 }));
+      }
     });
 
   } catch (error: any) {

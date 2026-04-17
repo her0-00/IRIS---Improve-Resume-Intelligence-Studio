@@ -275,7 +275,7 @@ def _get_luminance(color):
     return 0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue
 
 
-def _ensure_contrast(fg_color, bg_color, min_ratio=4.0):
+def _ensure_contrast(fg_color, bg_color, min_ratio=4.0, attr_name="Color"):
     """Adjust foreground color to ensure minimum contrast against background."""
     l1 = _get_luminance(fg_color)
     l2 = _get_luminance(bg_color)
@@ -283,8 +283,9 @@ def _ensure_contrast(fg_color, bg_color, min_ratio=4.0):
     ratio = (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
 
     if ratio < min_ratio:
-        # If background is dark, return white. Otherwise black.
-        return HexColor("#FFFFFF") if l2 < 0.5 else HexColor("#1A1A1A")
+        new_col = HexColor("#FFFFFF") if l2 < 0.5 else HexColor("#1A1A1A")
+        log.info(f"[CONTRAST] {attr_name} adjusted: {fg_color.hexval()} -> {new_col.hexval()} (ratio {ratio:.2f} < {min_ratio})")
+        return new_col
     return fg_color
 
 
@@ -356,16 +357,21 @@ def _apply_custom_style(cls, cv_data):
         try:
             col = HexColor(style["text_color"])
             # Enforce contrast against main background
-            col = _ensure_contrast(col, body_bg)
+            col = _ensure_contrast(col, body_bg, attr_name="Body Text")
 
             for a in ['TEXT', 'TEXT_DARK', 'TEXT_MED', 'TEXT_LIGHT', 'BODY_TEXT']:
                 if hasattr(ns, a): setattr(ns, a, col)
             setattr(ns, 'CONTACT_COLOR', col)
 
             # Sidebar text contrast check
-            scol = _ensure_contrast(col, sidebar_bg)
+            scol = _ensure_contrast(col, sidebar_bg, attr_name="Sidebar Text")
             for a in ['SIDEBAR_TEXT', 'SIDEBAR_MUTED']:
                 if hasattr(ns, a): setattr(ns, a, scol)
+            
+            # Greedily apply to Roles/Titles if they are not explicitly colored
+            if not style.get("subheading_color"):
+                setattr(ns, 'TITLE_COLOR', col)
+                setattr(ns, 'ROLE_COLOR', col)
         except: pass
 
     # 4. Specific Typography (Applied last to override general settings)

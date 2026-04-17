@@ -9,9 +9,15 @@ def main():
     try:
         import pdfplumber
 
-        pdf_bytes = sys.stdin.buffer.read()
+        # Ensure stdin is in binary mode and read all data
+        if hasattr(sys.stdin, 'buffer'):
+            pdf_bytes = sys.stdin.buffer.read()
+        else:
+            # Fallback for environments without buffer attribute
+            pdf_bytes = sys.stdin.read().encode('latin-1')
+            
         if not pdf_bytes:
-            print(json.dumps({"success": False, "error": "No input provided"}))
+            print(json.dumps({"success": False, "error": "No input provided"}), flush=True)
             sys.exit(1)
 
         text = ""
@@ -57,10 +63,10 @@ def main():
         for old, new in replacements.items():
             text = text.replace(old, new)
 
-        print(json.dumps({"success": True, "text": text}))
+        print(json.dumps({"success": True, "text": text}), flush=True)
 
     except Exception as e:
-        print(json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}))
+        print(json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}), flush=True)
         sys.exit(1)
 
 if __name__ == "__main__":

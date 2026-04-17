@@ -82,7 +82,7 @@ export default function Home() {
   const [editedCvDataJSON, setEditedCvDataJSON] = useState<string>('');
   const [pdfData, setPdfData] = useState<{ base64: string, filename: string } | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'audit' | 'sections' | 'edit' | 'pdf' | 'tips'>('audit');
+  const [activeTab, setActiveTab] = useState<'audit' | 'sections' | 'edit' | 'pdf' | 'tips' | 'jobs'>('audit');
   const [visualEditMode, setVisualEditMode] = useState(false);
   const [isFullscreenUI, setIsFullscreenUI] = useState(false);
 
@@ -107,6 +107,13 @@ export default function Home() {
   const [brandPalettes, setBrandPalettes] = useState<any[]>([]);
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [isLoadingColors, setIsLoadingColors] = useState(false);
+
+  // Job Search states
+  const [isSearchingJobs, setIsSearchingJobs] = useState(false);
+  const [jobMatches, setJobMatches] = useState<any[]>([]);
+  const [jobSearchDebug, setJobSearchDebug] = useState<any>(null);
+  const [jobSearchQuery, setJobSearchQuery] = useState('');
+  const [jobSearchLocation, setJobSearchLocation] = useState('France');
 
   // Get theme defaults for color pickers
   const getThemeDefaults = () => {
@@ -418,6 +425,39 @@ export default function Home() {
     link.href = pdfUrl;
     link.download = pdfData?.filename || 'CV_Generated.pdf';
     link.click();
+  };
+
+  const handleSearchJobs = async () => {
+    if (!apiKey) return alert('Veuillez saisir votre clé API Groq.');
+    
+    // Auto-fill query if empty
+    let finalQuery = jobSearchQuery;
+    if (!finalQuery && analysisResult?._cv_data) {
+        finalQuery = analysisResult._cv_data.title || analysisResult._cv_data.name;
+        setJobSearchQuery(finalQuery);
+    }
+
+    setIsSearchingJobs(true);
+    try {
+      const res = await fetch('/api/deepsearch-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            profile: analysisResult?._cv_data || {}, 
+            query: finalQuery, 
+            location: jobSearchLocation, 
+            api_key: apiKey 
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setJobMatches(data.matches || []);
+      setJobSearchDebug(data.debug || null);
+    } catch (err: any) {
+      alert("Erreur DeepSearch: " + err.message);
+    } finally {
+      setIsSearchingJobs(false);
+    }
   };
 
   return (
@@ -734,6 +774,7 @@ export default function Home() {
               <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setActiveTab('sections')}>◈ Sections</button>
               <button className={`tab ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')}>✏️ Content</button>
               <button data-tour="pdf-tab" className={`tab ${activeTab === 'pdf' ? 'active' : ''}`} onClick={() => setActiveTab('pdf')}>🎨 CV PDF Export</button>
+              {/* <button className={`tab ${activeTab === 'jobs' ? 'active' : ''}`} onClick={() => setActiveTab('jobs')}>📡 DeepSearch</button> */}
               <button className={`tab ${activeTab === 'tips' ? 'active' : ''}`} onClick={() => setActiveTab('tips')}>💡 Pro Tips</button>
             </div>
 
@@ -857,6 +898,15 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {/* TAB: DEEPSEARCH JOBS (MODÈLE EN COMMENTAIRE POUR LE MOMENT) */}
+            {/* 
+            {activeTab === 'jobs' && (
+              <div className="animate-in">
+                ... (tout le contenu de l'agent de recherche a été mis en commentaire) ...
+              </div>
+            )} 
+            */}
 
             {/* TAB: PDF EXPORT */}
             {activeTab === 'pdf' && (
