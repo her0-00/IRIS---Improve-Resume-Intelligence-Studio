@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: recruitiq
+    name: riis
     runtime: docker
     region: frankfurt
     plan: free

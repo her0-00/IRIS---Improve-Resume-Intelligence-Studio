@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RecruitIQ ATS Intelligence v4.0",
-  description: "Generate pixel perfect resumes perfectly tuned for ATS.",
+  title: "RIIS - Resume Improve Intelligence Studio",
+  description: "AI-powered resume optimization with 3 AI providers. Analyze, rewrite, and export ATS-optimized CVs.",
 };
 
 export default function RootLayout({

@@ -1,8 +1,8 @@
-# ⬡ RecruitIQ — The ATS Intelligence Engine
+# ⬡ RIIS — Resume Improve Intelligence Studio
 
 **Stop sending your CV into the "Resume Black Hole".** 
 
-75% of applications are rejected by automated bots before a human ever sees them. RecruitIQ is a high-performance utility designed to audit, rewrite, and export your CV so it bypasses tracking systems (ATS) and lands directly on a recruiter's desk.
+75% of applications are rejected by automated bots before a human ever sees them. RIIS is a high-performance utility designed to audit, rewrite, and export your CV so it bypasses tracking systems (ATS) and lands directly on a recruiter's desk.
 
 ---
 
@@ -14,8 +14,9 @@
 | **Psychological Insights** | AI analyzes why a human recruiter might ignore or underpay you. |
 | **Market Value Benchmarking** | Estimates your salary potential and identifies the "Salary Gap". |
 | **Semantic Keyword Injection** | Automatically matches your skills to the specific job offer context. |
-| **CV Studio Pro** | Generates pixel-perfect PDFs in 26 premium themes with full customization. |
+| **CV Studio Pro** | Generates pixel-perfect PDFs in 32 premium themes with full customization. |
 | **Profile Photo Integration** | Upload and embed professional photos in 10 specialized photo-enabled themes. |
+| **3 AI Providers** | Choose between Groq, Mistral AI, or Google AI (Gemini) for analysis. |
 
 ---
 
@@ -28,14 +29,14 @@ Don't guess your chances. Get a precise **Score (0-100)**, a **Pass Probability*
 - **Recruiter Psychology**: Explains the "Shadow Profile" you present to hiring managers.
 
 ### 🧠 Intelligent AI Rewriting
-Powered by **Groq (Llama-3.3-70b)**, RecruitIQ doesn't just "fix" your CV; it transforms it:
+Powered by **3 AI Providers** (Groq, Mistral AI, Google AI), RIIS doesn't just "fix" your CV; it transforms it:
 - **Boost Mode**: Enriches your experience with hidden accomplishments relevant to the job.
 - **Dual Language**: Seamlessly translate and optimize between French and English.
 - **Visual Edition**: Use the **Live Editor** to click any part of your PDF and edit the text directly.
 
 ### 🎨 The PDF Engine (Python Worker)
 Most "beautiful" CVs (Canva/Design) fail ATS because they aren't readable by machines. Our Python backend uses **ReportLab** to draw exact coordinates:
-- **26 Premium Themes**: 16 standard themes (from "Tech Grid" to "SOTA Luxury") + 10 photo-enabled themes ("Executive Portrait" to "International Profile").
+- **32 Premium Themes**: 16 standard themes + 10 photo-enabled themes + 6 ATS-optimized themes
 - **Customization Studio**: Real-time control over:
   - **Accent Colors**: Primary, secondary, and tertiary color schemes
   - **Typography Colors**: Name, headings, subheadings, and body text
@@ -92,7 +93,7 @@ Specialized layouts with integrated profile photos:
 ### Prerequisites
 - Node.js 20+
 - Python 3.11+
-- [Groq API Key](https://console.groq.com) (Free)
+- At least one API Key: [Groq](https://console.groq.com) (Free) or [Mistral](https://console.mistral.ai) or [Google AI](https://aistudio.google.com/apikey)
 
 ### Installation
 ```bash
@@ -109,7 +110,7 @@ Navigate to `http://localhost:3000` to start your audit.
 ---
 
 ## 🏗️ Architecture: How the Utility Works
-RecruitIQ operates as a dual-agent pipeline:
+RIIS operates as a dual-agent pipeline:
 1. **The Auditor**: Extracts text (pdfminer) and performs a competitive analysis.
 2. **The Architect**: Restructures the data into a normalized JSON schema.
 3. **The Worker**: A dedicated Python process renders the JSON into a high-fidelity PDF.
@@ -118,7 +119,7 @@ RecruitIQ operates as a dual-agent pipeline:
 ### Technical Stack
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
 - **Backend**: Python 3.11, FastAPI, ReportLab (PDF generation)
-- **AI Engine**: Groq API (Llama-3.3-70b-versatile)
+- **AI Engine**: Groq API / Mistral AI / Google AI (Gemini)
 - **PDF Processing**: pdfminer.six for text extraction
 - **Image Processing**: Pillow with face detection for photo optimization
 
