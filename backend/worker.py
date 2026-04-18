@@ -65,6 +65,9 @@ def main():
         if not isinstance(cv_data.get("certifications"), list): cv_data["certifications"] = []
         cv_data["certifications"] = [c for c in cv_data["certifications"] if isinstance(c, str)]
 
+        if not isinstance(cv_data.get("interests"), list): cv_data["interests"] = []
+        cv_data["interests"] = [i for i in cv_data["interests"] if isinstance(i, str)]
+
         if not isinstance(cv_data.get("languages"), list): cv_data["languages"] = []
         cv_data["languages"] = [l for l in cv_data["languages"] if isinstance(l, dict)]
         for li in cv_data["languages"]:

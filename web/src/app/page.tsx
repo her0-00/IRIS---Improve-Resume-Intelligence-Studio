@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { UploadCloud, FileText, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Download, Play, LayoutTemplate, Wand2, ShieldCheck, Lock, Server, Eye, Trash2 } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle2, AlertTriangle, AlertCircle, Sparkles, Download, Play, LayoutTemplate, Wand2, ShieldCheck, Lock, Server, Eye, Trash2, Quote, BookOpen } from 'lucide-react';
 import { cvExamples } from './examples';
 import OnboardingTour from './OnboardingTour';
 import SimplePDFEditor from './SimplePDFEditor';
@@ -60,6 +60,21 @@ const THEME_CATEGORIES = [
   },
 ];
 
+/**
+ * Utility to extract a surrounding context (N lines before/after) for a given line index.
+ */
+function getLinesContext(fullText: string, targetLine: number, windowSize: number = 1) {
+  if (!fullText || targetLine <= 0) return [];
+  const lines = fullText.split('\n');
+  const start = Math.max(0, targetLine - windowSize - 1);
+  const end = Math.min(lines.length, targetLine + windowSize);
+  return lines.slice(start, end).map((content, i) => ({
+    number: start + i + 1,
+    content,
+    isTarget: (start + i + 1) === targetLine
+  }));
+}
+
 const ALL_THEMES = THEME_CATEGORIES.flatMap(c => c.themes);
 
 export default function Home() {
@@ -114,6 +129,7 @@ export default function Home() {
   const [jobSearchDebug, setJobSearchDebug] = useState<any>(null);
   const [jobSearchQuery, setJobSearchQuery] = useState('');
   const [jobSearchLocation, setJobSearchLocation] = useState('France');
+  const [showAnalysisSource, setShowAnalysisSource] = useState(false);
 
   // Get theme defaults for color pickers
   const getThemeDefaults = () => {
@@ -429,12 +445,12 @@ export default function Home() {
 
   const handleSearchJobs = async () => {
     if (!apiKey) return alert('Veuillez saisir votre clé API Groq.');
-    
+
     // Auto-fill query if empty
     let finalQuery = jobSearchQuery;
     if (!finalQuery && analysisResult?._cv_data) {
-        finalQuery = analysisResult._cv_data.title || analysisResult._cv_data.name;
-        setJobSearchQuery(finalQuery);
+      finalQuery = analysisResult._cv_data.title || analysisResult._cv_data.name;
+      setJobSearchQuery(finalQuery);
     }
 
     setIsSearchingJobs(true);
@@ -442,11 +458,11 @@ export default function Home() {
       const res = await fetch('/api/deepsearch-jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            profile: analysisResult?._cv_data || {}, 
-            query: finalQuery, 
-            location: jobSearchLocation, 
-            api_key: apiKey 
+        body: JSON.stringify({
+          profile: analysisResult?._cv_data || {},
+          query: finalQuery,
+          location: jobSearchLocation,
+          api_key: apiKey
         })
       });
       const data = await res.json();
@@ -782,18 +798,131 @@ export default function Home() {
             {activeTab === 'audit' && (
               <div>
                 <div className="card">
-                  <div className="card-hd">Market Verdict</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <div className="card-hd" style={{ margin: 0 }}>Market Verdict</div>
+                    <button 
+                      className="btn-outline" 
+                      onClick={() => setShowAnalysisSource(!showAnalysisSource)}
+                      style={{ fontSize: '0.65rem', padding: '4px 10px', height: 'auto', borderStyle: 'dashed' }}
+                    >
+                      {showAnalysisSource ? "🙈 HIDE SOURCE" : "📄 VIEW SOURCE REFERENCES"}
+                    </button>
+                  </div>
                   <p className="verdict-text" style={{ fontStyle: 'italic', marginBottom: '1.2rem' }}>"{analysisResult.market_value_verdict}"</p>
 
                   <div className="ins cyan">
                     <div className="ins-l">Top Strength</div>
                     <p>{analysisResult.top_strength}</p>
+                    {analysisResult.grounding?.top_strength && (
+                      analysisResult.grounding.top_strength.line === -1 ? (
+                        <div className="animate-in" style={{ marginTop: '0.8rem', padding: '10px', background: 'rgba(14,165,233,0.05)', borderRadius: '6px', border: '1px solid rgba(14,165,233,0.2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <CheckCircle2 size={14} color="#0EA5E9" />
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#0EA5E9', letterSpacing: '0.05em' }}>VERIFIED CONTEXT</span>
+                        </div>
+                      ) : (
+                        <div className="clipping animate-in" style={{ marginTop: '0.8rem', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px', border: '1px solid var(--border)', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', opacity: 0.6 }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Quote size={10} /> DOCUMENT SNIPPET
+                            </span>
+                            <span style={{ fontSize: '0.6rem' }}>L.{analysisResult.grounding.top_strength.line}</span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', fontFamily: 'serif', lineHeight: '1.5' }}>
+                            {getLinesContext(cvText, analysisResult.grounding.top_strength.line).map((l, i) => (
+                              <div key={i} style={{ 
+                                background: l.isTarget ? 'rgba(14,165,233,0.1)' : 'transparent',
+                                borderLeft: l.isTarget ? '2px solid #0EA5E9' : 'none',
+                                paddingLeft: l.isTarget ? '6px' : '8px',
+                                opacity: l.isTarget ? 1 : 0.5
+                              }}>
+                                {l.content}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
                   <div className="ins danger">
                     <div className="ins-l">Why you might be ignored</div>
                     <p>{analysisResult.psychology?.pourquoi_ignore}</p>
+                    {analysisResult.grounding?.pourquoi_ignore && (
+                      analysisResult.grounding.pourquoi_ignore.line === -1 ? (
+                        <div className="animate-in" style={{ marginTop: '0.8rem', padding: '10px', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <AlertTriangle size={14} color="#EF4444" />
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#EF4444', letterSpacing: '0.05em' }}>⚠️ CRITICAL INFORMATION MISSING</span>
+                        </div>
+                      ) : (
+                        <div className="clipping animate-in" style={{ marginTop: '0.8rem', padding: '12px', background: 'rgba(239, 68, 68, 0.03)', borderRadius: '4px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', opacity: 0.6 }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <AlertCircle size={10} color="#EF4444" /> DOCUMENT SNIPPET
+                            </span>
+                            <span style={{ fontSize: '0.6rem', color: '#EF4444' }}>L.{analysisResult.grounding.pourquoi_ignore.line}</span>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', fontFamily: 'serif', lineHeight: '1.5' }}>
+                            {getLinesContext(cvText, analysisResult.grounding.pourquoi_ignore.line).map((l, i) => (
+                              <div key={i} style={{ 
+                                background: l.isTarget ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                borderLeft: l.isTarget ? '2px solid #EF4444' : 'none',
+                                paddingLeft: l.isTarget ? '6px' : '8px',
+                                opacity: l.isTarget ? 1 : 0.5
+                              }}>
+                                {l.content}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
+
+                {showAnalysisSource && (
+                  <div className="card animate-in" style={{ background: 'var(--surface)', border: '1px solid var(--border)', maxHeight: '500px', overflowY: 'auto', marginBottom: '1.5rem', padding: '0' }}>
+                    <div style={{ position: 'sticky', top: 0, background: 'var(--bg)', zIndex: 10, padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <BookOpen size={16} color="var(--gold)" />
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--gold)', letterSpacing: '0.05em' }}>DOCUMENT SPOTLIGHT (SOURCE CV)</span>
+                    </div>
+                    <div style={{ padding: '20px', fontFamily: 'serif', fontSize: '0.85rem', color: 'var(--text1)', lineHeight: '1.8' }}>
+                      {cvText.split('\n').map((line, idx) => {
+                        const lineNum = idx + 1;
+                        const isRisk = analysisResult.grounding?.pourquoi_ignore?.line === lineNum;
+                        const isStrength = analysisResult.grounding?.top_strength?.line === lineNum;
+                        
+                        return (
+                          <div key={idx} style={{ 
+                            display: 'flex', 
+                            gap: '20px',
+                            background: isRisk ? 'rgba(239, 68, 68, 0.1)' : isStrength ? 'rgba(16, 185, 129, 0.1)' : 'transparent',
+                            marginLeft: '-20px',
+                            marginRight: '-20px',
+                            paddingLeft: '20px',
+                            paddingRight: '20px',
+                            position: 'relative'
+                          }}>
+                            {(isRisk || isStrength) && (
+                              <div style={{ 
+                                position: 'absolute', 
+                                left: 0, 
+                                top: 0, 
+                                bottom: 0, 
+                                width: '4px', 
+                                background: isRisk ? '#EF4444' : '#10B981' 
+                              }} />
+                            )}
+                            
+                            <div style={{ width: '40px', textAlign: 'right', opacity: 0.2, userSelect: 'none', fontSize: '0.7rem' }}>{lineNum}</div>
+                            <div style={{ flex: 1 }}>{line || ' '}</div>
+                            
+                            {isRisk && <span style={{ fontSize: '0.6rem', color: '#EF4444', fontWeight: 900, background: 'rgba(239, 68, 68, 0.1)', padding: '2px 6px', borderRadius: '4px', height: 'fit-content', marginTop: '4px' }}>RISK</span>}
+                            {isStrength && <span style={{ fontSize: '0.6rem', color: '#10B981', fontWeight: 900, background: 'rgba(16, 185, 129, 0.1)', padding: '2px 6px', borderRadius: '4px', height: 'fit-content', marginTop: '4px' }}>STRENGTH</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="keywords-grid">
                   <div className="card">

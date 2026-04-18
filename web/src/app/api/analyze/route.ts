@@ -88,8 +88,8 @@ async function callGroq(
     } catch (err: any) {
       const msg = err?.message || '';
       const skip = err?.status === 429 || msg.includes('429') || msg.includes('rate_limit')
-                || (err?.status === 400 && msg.includes('decommissioned'))
-                || msg === 'timeout';
+        || (err?.status === 400 && msg.includes('decommissioned'))
+        || msg === 'timeout';
       if (skip) {
         console.warn(`[${label}] ${model} skipped (${msg.includes('rate_limit') || err?.status === 429 ? 'rate-limit' : msg === 'timeout' ? 'timeout' : 'decommissioned'}), trying next...`);
         lastError = err;
@@ -144,14 +144,23 @@ Required fields:
 - missing_keywords: array of exactly 6 strings
 - present_keywords: array of exactly 5 strings
 - benchmark: object with integer values 0-100 for keys: tech, finance, consulting, marketing, rh_legal
+- grounding: object for keys {top_strength, pourquoi_ignore, market_value}. Each MUST be an object: {"text": "EXACT LITERAL quote from CV. Must be related to advice.", "line": integer line index. USE -1 IF THE ADVICE IS ABOUT AN ABSENCE OR MISSING ELEMENT IN THE CV.}
+CRITICAL SEMANTIC RULE: If you critique the ABSENCE of a skill (e.g., 'Missing project management'), you MUST use line: -1. Never point to unrelated text like an email address for a missing skill.
+HEADER EXCLUSION: For 'top_strength' and 'market_value', STIRCTLY FORBIDDEN to quote lines 1-10 (Header/Name/Contact). You MUST find grounding text in the 'Professional Experience' or 'Skills' sections.
+POURQUOI_IGNORE RULE: This MUST be a direct negative conclusion derived ONLY from current CV text - NO clichés like 'perfectionist'. If you claim someone 'overestimates', you must provide a specific line as evidence.
 Output ONLY the raw JSON object. Do not add any explanation, markdown, or text outside the JSON.`;
 
-    const prompt1 = `CV:\n${cleanCvText.substring(0, 6000)}\n\nJOB OFFER:\n${job_desc ? job_desc.substring(0, 3000) : 'Senior management — general analysis'}`;
+    const cvTextLines = cleanCvText.split('\n');
+    const cvWithHeaderMarks = cvTextLines.map((line, idx) => 
+      idx < 10 ? `[HEADER: CONTACT INFO - DO NOT CITE FOR STRENGTHS] ${line}` : line
+    ).join('\n');
+
+    const prompt1 = `CV TEXT (Indexed):\n${cvWithHeaderMarks.substring(0, 6000)}\n\nJOB OFFER:\n${job_desc ? job_desc.substring(0, 3000) : 'Senior management — general analysis'}`;
 
     const analysisData = await callGroq(groq, system1, prompt1, 'Agent1-Audit');
 
     // ── AGENT 2: CV Rewrite ────────────────────────────────────────────────────────────────────────────
-    const missingKws   = (analysisData.missing_keywords || []).slice(0, 8).join(', ');
+    const missingKws = (analysisData.missing_keywords || []).slice(0, 8).join(', ');
     const currentScore = analysisData.global_score || 0;
 
     const system2 = boost_mode
@@ -168,9 +177,10 @@ Rules:
 - skills: EXACTLY {"categories": [{"name": "...", "items": ["..."]}]}. Max 3 categories. Category names in ${outputLang}.
 - languages: EXACTLY [{"lang": "...", "level": "...", "level_num": 1-5}]. ONLY languages from CV. level label in ${outputLang}.
 - certifications: array of strings. [] if none.
+- interests: array of strings (hobbies, etc.). [] if none.
 
 CRITICAL: experiences must be objects with bullets array, NOT strings.
-Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, summary, experiences, education, skills, languages, certifications.`
+Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, summary, experiences, education, skills, languages, certifications, interests.`
       : `You are an expert CV rewriter and career coach.
 Goal: rewrite the candidate's CV to maximize match with the target job, while staying truthful.
 WRITE EVERYTHING IN ${outputLang.toUpperCase()} — including role titles, bullets, summary, skill category names, and education details. Translate any French content to ${outputLang}.
@@ -185,9 +195,10 @@ Rules:
 - skills: EXACTLY {"categories": [{"name": "...", "items": ["..."]}]}. Max 3 categories. Category names in ${outputLang}.
 - languages: EXACTLY [{"lang": "...", "level": "...", "level_num": 1-5}]. ONLY languages from CV. level label in ${outputLang}.
 - certifications: array of strings. [] if none.
+- interests: array of strings (hobbies, etc.). [] if none.
 
 CRITICAL: experiences must be objects with bullets array, NOT strings.
-Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, summary, experiences, education, skills, languages, certifications.`;
+Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, summary, experiences, education, skills, languages, certifications, interests.`;
 
     const prompt2 = `CV HEADER (first lines):
 ${cleanCvText.split('\n').filter(l => l.trim()).slice(0, 6).join('\n')}
@@ -208,18 +219,20 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
     // Normalize skills: [{category, skills}] or [{name, skills}] -> {categories:[{name,items}]}
     let skills = llmFields.skills;
     if (Array.isArray(skills)) {
-      skills = { categories: skills.map((s: any) => ({
-        name:  s.name ?? s.category ?? '',
-        items: s.items ?? s.skills ?? []
-      })) };
+      skills = {
+        categories: skills.map((s: any) => ({
+          name: s.name ?? s.category ?? '',
+          items: s.items ?? s.skills ?? []
+        }))
+      };
     } else if (!skills?.categories) {
       skills = { categories: [] };
     }
     // Ensure each category has name:string and items:string[]
     skills.categories = (skills.categories as any[]).map((cat: any) => ({
-      name:  typeof cat.name === 'string'  ? cat.name  : (cat.category ?? ''),
+      name: typeof cat.name === 'string' ? cat.name : (cat.category ?? ''),
       items: Array.isArray(cat.items) ? cat.items.filter((i: any) => typeof i === 'string')
-           : Array.isArray(cat.skills) ? cat.skills.filter((i: any) => typeof i === 'string') : []
+        : Array.isArray(cat.skills) ? cat.skills.filter((i: any) => typeof i === 'string') : []
     }));
 
     // Normalize languages: "French" -> {lang,level,level_num}
@@ -246,11 +259,11 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
         return { role: e, company: '', period: '', location: '', bullets: [] };
       }
       return {
-        role:     typeof e.role     === 'string' ? e.role     : '',
-        company:  typeof e.company  === 'string' ? e.company  : '',
-        period:   typeof e.period   === 'string' ? e.period   : (e.period ?? ''),
+        role: typeof e.role === 'string' ? e.role : '',
+        company: typeof e.company === 'string' ? e.company : '',
+        period: typeof e.period === 'string' ? e.period : (e.period ?? ''),
         location: typeof e.location === 'string' ? e.location : '',
-        bullets:  Array.isArray(e.bullets) ? e.bullets.filter((b: any) => typeof b === 'string') : [],
+        bullets: Array.isArray(e.bullets) ? e.bullets.filter((b: any) => typeof b === 'string') : [],
       };
     });
 
@@ -263,25 +276,28 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
       return {
         degree: typeof e.degree === 'string' ? e.degree : '',
         school: typeof e.school === 'string' ? e.school : '',
-        year:   typeof e.year   === 'string' ? e.year   : (e.year ?? ''),
+        year: typeof e.year === 'string' ? e.year : (e.year ?? ''),
         detail: typeof e.detail === 'string' ? e.detail : null,
       };
     });
 
+    const interests = llmFields.interests || llmFields["centres d'intérêt"] || llmFields["centre d'intérêt"] || llmFields.hobbies || llmFields.loisirs || [];
+
     const cvDataStructured = {
-      name:           typeof llmFields.name     === 'string' ? llmFields.name     : '',
-      title:          typeof llmFields.title    === 'string' ? llmFields.title    : '',
+      name:           String(llmFields.name || llmFields.nom || ''),
+      title:          String(llmFields.title || llmFields.titre || ''),
       email:          typeof llmFields.email    === 'string' ? llmFields.email    : null,
       phone:          typeof llmFields.phone    === 'string' ? llmFields.phone    : null,
       location:       typeof llmFields.location === 'string' ? llmFields.location : null,
       linkedin:       typeof llmFields.linkedin === 'string' ? llmFields.linkedin : null,
       github:         typeof llmFields.github   === 'string' ? llmFields.github   : null,
-      summary:        typeof llmFields.summary  === 'string' ? llmFields.summary  : '',
+      summary:        String(llmFields.summary || llmFields.résumé || llmFields.profil || ''),
       experiences,
       education,
       certifications: Array.isArray(llmFields.certifications) ? llmFields.certifications.filter((c: any) => typeof c === 'string') : [],
       skills,
       languages,
+      interests: Array.isArray(interests) ? interests.filter((i: any) => typeof i === 'string') : [],
       score_before: currentScore,
       score_after:  Math.min(currentScore + 15, 100),
     };

@@ -64,6 +64,12 @@ export default function SimplePDFEditor({ cvData, onUpdate, pdfUrl }: SimplePDFE
       { path: `languages.${idx}.level`, label: `📊 Langue ${idx + 1} - Niveau` }
     ]) || [],
 
+    // Interests
+    ...cvData.interests?.map((item: string, idx: number) => ({
+      path: `interests.${idx}`,
+      label: `🎨 Centre d'intérêt ${idx + 1}`
+    })) || [],
+
     // Certifications
     ...cvData.certifications?.map((cert: string, idx: number) => ({
       path: `certifications.${idx}`,

@@ -13,6 +13,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import HexColor
 
 from backend.logger import get_logger
+from backend.ats_metadata import add_ats_metadata
 
 log = get_logger("pdf_cv")
 
@@ -103,7 +104,8 @@ def _get_labels(lang="fr") -> dict:
             "certifications": "CERTIFICATIONS",
             "contact": "CONTACT",
             "expertise": "EXPERTISE",
-            "skills_lang": "COMPÉTENCES & LANGUES"
+            "skills_lang": "COMPÉTENCES & LANGUES",
+            "interests": "CENTRES D'INTÉRÊT"
         },
         "en": {
             "experience": "PROFESSIONAL EXPERIENCE",
@@ -115,7 +117,8 @@ def _get_labels(lang="fr") -> dict:
             "certifications": "CERTIFICATIONS",
             "contact": "CONTACT INFO",
             "expertise": "EXPERTISE",
-            "skills_lang": "SKILLS & LANGUAGES"
+            "skills_lang": "SKILLS & LANGUAGES",
+            "interests": "INTERESTS"
         }
     }
     return labels.get(lang.lower(), labels["fr"])
@@ -155,8 +158,8 @@ def _sanitize_text(text: str) -> str:
 def _draw_ats_hidden_keywords(c, cv_data, bg_color=None):
     """
     Inject a 'keyword cloud' of high-value terms in the margin.
-    Uses 1pt font in background color to be invisible to humans but
-    guaranteed visible to ATS scrapers and Ctrl+A.
+    Uses 0.1pt font in background color to be ATS-readable but visually invisible.
+    FIX: Changed from setTextRenderMode(3) to setTextRenderMode(0) for ATS compatibility.
     """
     from reportlab.lib.colors import HexColor
     from reportlab.lib.pagesizes import A4
@@ -183,13 +186,12 @@ def _draw_ats_hidden_keywords(c, cv_data, bg_color=None):
         
     fscale = getattr(c, "_fscale", 1.0)
     
-    # STEALTH MODE: 1pt font, Invisible rendering mode + matching color
+    # ATS-SAFE MODE: 0.1pt font, Normal rendering mode + background color
     # Placed in the middle-left margin (almost always on main body background)
     to = c.beginText(5, H / 2)
-    to.setFont("Helvetica", 1) 
-    to.setTextRenderMode(3) # Mode 3 = Invisible (no fill, no stroke)
-    c.setFillColor(bg_color) 
-    c.setFillAlpha(0.01)     # Nearly zero opacity as extra layer
+    to.setFont("Helvetica", 0.1)  # Micro-size instead of invisible
+    to.setTextRenderMode(0)  # Normal mode (ATS-readable)
+    c.setFillColor(bg_color)  # Match background color
     
     # Draw cloud
     chunk_size = 8
@@ -198,7 +200,6 @@ def _draw_ats_hidden_keywords(c, cv_data, bg_color=None):
         to.textLine(chunk)
         
     c.drawText(to)
-    c.setFillAlpha(1.0) # Reset
 
 
 # ── HYPERLINK PARSING ──────────────────────────────────────────────
@@ -257,14 +258,14 @@ def _draw_link(c, x, y, label, url, font, size, color, underline=True, force_fam
     full_ats_text = f"{ats_prefix}{url} "
     
     to = c.beginText(c._ats_link_x, 15) 
-    to.setFont(fn, 6)
-    to.setTextRenderMode(3) # 3 = Invisible
+    to.setFont(fn, 0.1)
+    to.setTextRenderMode(0)
+    c.setFillColor(HexColor("#FFFFFF"))
     to.textOut(full_ats_text)
-    to.setTextRenderMode(0) 
     c.drawText(to)
     
     # Update tracking X for next link
-    c._ats_link_x += c.stringWidth(full_ats_text, fn, 6)
+    c._ats_link_x += c.stringWidth(full_ats_text, fn, 0.1)
     
     if underline:
         c.setStrokeColor(color)
@@ -604,20 +605,6 @@ def _draw_wrapped_contact(c, cv_data, x, y, max_w, font_name="Poppins", font_siz
             curr_x += sep_w
 
         if not dry_run:
-            # ATS Semantic Labeling (Invisible)
-            ats_label = ""
-            if key == "email": ats_label = "Email: "
-            elif key == "phone": ats_label = "Phone: "
-            elif key == "location": ats_label = "Location: "
-            
-            if ats_label:
-                to = c.beginText(curr_x, curr_y)
-                to.setFont(_f(font_name, force_family=force_family), font_size)
-                to.setTextRenderMode(3) # Invisible
-                to.textOut(ats_label)
-                to.setTextRenderMode(0)
-                c.drawText(to)
-
             if url:
                 curr_x += _draw_link(c, curr_x, curr_y, label, url, font_name, font_size, color, force_family=force_family)
             else:
@@ -646,19 +633,6 @@ def _draw_vertical_contact(c, cv_data, x, y, font_name="Poppins", font_size=7, c
     curr_y = y
     for key, val in items:
         label, url = _parse_link(val)
-        
-        # ATS Semantic Labeling (Invisible)
-        ats_label = ""
-        if key == "email": ats_label = "Email: "
-        elif key == "phone": ats_label = "Phone: "
-        elif key == "location": ats_label = "Location: "
-        if ats_label:
-            to = c.beginText(x, curr_y)
-            to.setFont(_f(font_name, force_family=force_family), font_size)
-            to.setTextRenderMode(3)
-            to.textOut(ats_label)
-            to.setTextRenderMode(0)
-            c.drawText(to)
 
         if url:
             _draw_link(c, x, curr_y, label, url, font_name, font_size, color, force_family=force_family)
@@ -718,19 +692,6 @@ def _draw_wrapped_centred_contact(c, cv_data, cx, y, max_w, font_name="Poppins",
                 c.setFillColor(color)
                 c.drawString(lx, curr_y, sep)
                 lx += sep_w
-            
-            # ATS Semantic Labeling (Invisible)
-            ats_label = ""
-            if key == "email": ats_label = "Email: "
-            elif key == "phone": ats_label = "Phone: "
-            elif key == "location": ats_label = "Location: "
-            if ats_label:
-                to = c.beginText(lx, curr_y)
-                to.setFont(_f(font_name, force_family=force_family), font_size)
-                to.setTextRenderMode(3)
-                to.textOut(ats_label)
-                to.setTextRenderMode(0)
-                c.drawText(to)
 
             if url:
                 lx += _draw_link(c, lx, curr_y, label, url, font_name, font_size, color, force_family=force_family)
@@ -741,7 +702,19 @@ def _draw_wrapped_centred_contact(c, cv_data, cx, y, max_w, font_name="Poppins",
                 lx += item_w
         curr_y -= (font_size * fscale + 4)
         
-    return curr_y - 6
+    return curr_y - (font_size * fscale + 4)
+
+
+def _draw_interests_tags(c, interests, x, y, max_w, font_name="Poppins", font_size=7, color=None, bg_color=None, force_family=None):
+    """Draw interests as a comma-separated list or small tags. Returns new y."""
+    if not interests: return y
+    from reportlab.lib.colors import HexColor
+    color = color or HexColor("#444444")
+    fscale = getattr(c, "_fscale", 1.0)
+    line_h = (font_size + 4) * fscale
+    
+    text = ", ".join(interests)
+    return _draw_multiline(c, text, x, y, font_name, font_size, color, max_w, font_size + 4, force_family=force_family)
 
 class _ClassicDark:
     SIDEBAR_BG    = HexColor("#0F1117")
@@ -772,6 +745,7 @@ class _ClassicDark:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
 
         def new_page():
             c.showPage()
@@ -883,6 +857,12 @@ class _ClassicDark:
                 c.setFont(_f("Poppins-Bold", FF), 8)
                 c.drawString(SX, sy + 0.5 * _fscale, "◆")
                 sy = _draw_multiline(c, cert, SX + 11, sy, "Poppins", 7, cls.SIDEBAR_MUTED, SW - 12, 11, force_family=FF) - 4
+
+        # Interests
+        if cv_data.get("interests"):
+            sy -= 12 * _fscale
+            sy = sidebar_title(L["interests"], sy)
+            sy = _draw_interests_tags(c, cv_data["interests"], SX, sy, SW, "Poppins", 7, cls.SIDEBAR_MUTED, force_family=FF)
 
         # Score badge automatically removed upon user request to avoid awkward generated CV layout
 
@@ -1003,6 +983,7 @@ class _CanvaMinimal:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
 
         def new_page():
             c.showPage()
@@ -1154,6 +1135,12 @@ class _CanvaMinimal:
                 c.drawString(COL2_X, col2_y + 1 * _fscale, "◆")
                 col2_y = _draw_multiline(c, cert, COL2_X + 10, col2_y, "Poppins", 7, cls.TEXT_MED, COL2_W - 12, 11, force_family=FF) - 4
 
+        # Interests
+        if cv_data.get("interests"):
+            col2_y -= 10 * _fscale
+            col2_y = section_title(L["interests"], COL2_X, col2_y, COL2_W, cls.ACCENT2)
+            col2_y = _draw_interests_tags(c, cv_data["interests"], COL2_X, col2_y, COL2_W, "Poppins", 7.5, cls.TEXT_MED, force_family=FF)
+
         # Vertical separator
         c.setStrokeColor(cls.DIVIDER)
         c.setLineWidth(1)
@@ -1197,6 +1184,7 @@ class _NordicClean:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
 
         def new_page():
             c.showPage()
@@ -1399,6 +1387,11 @@ class _NordicClean:
                 tx += sw_tag + 55 * _fscale
             my -= 25 * _fscale
 
+        # Interests
+        if cv_data.get("interests"):
+            my = section_title(L["interests"], my)
+            my = _draw_interests_tags(c, cv_data["interests"], MX, my, MW, "Poppins", 8, cls.TEXT_MED, force_family=FF)
+
         # Footer
         _draw_rect(c, 0, 0, W, 20, fill=cls.HEADER_BG)
         c.setFont(_f("Poppins", FF), 6.5)
@@ -1437,6 +1430,7 @@ class _TechGrid:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
 
         def new_page():
             c.showPage()
@@ -1644,11 +1638,12 @@ class _TechGrid:
                 tx += sw_tag + 5 * _fscale
             my -= 30 * _fscale
 
-        # Footer
-        _draw_rect(c, 0, 0, W, 20, fill=cls.SURFACE)
-        c.setFont(_f("Poppins", FF), 6.5)
-        c.setFillColor(cls.TEXT_MED)
-        c.drawCentredString(W / 2, 7, "// " + name + " · CV · 2026")
+        # Interests
+        if cv_data.get("interests"):
+            if my < 80 * _fscale: my = new_page()
+            my = section_title(f"// {L['interests']}", my)
+            my = _draw_interests_tags(c, cv_data["interests"], MX, my, MW, "Poppins", 8, cls.TEXT_MED, force_family=FF)
+            my -= 10 * _fscale
 
         _draw_ats_hidden_keywords(c, cv_data, getattr(cls, 'BODY_BG', getattr(cls, 'BG', None)))
         c.save()
@@ -1681,6 +1676,7 @@ class _LuxurySerif:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
 
         def new_page():
             c.showPage()
@@ -1820,9 +1816,18 @@ class _LuxurySerif:
             my = section_title("Langues", my)
             lang_str = "  ·  ".join([f"{li.get('lang','')} ({li.get('level','')})" for li in cv_data["languages"]])
             c.setFont(_f("Poppins", FF), 8)
-            c.setFillColor(cls.TEXT_MED)
             c.drawCentredString(W / 2, my, lang_str)
-            my -= 14
+            my -= 18
+
+        # Interests
+        if cv_data.get("interests") and my > 60:
+            my = section_title(L["interests"], my)
+            # Center the tags for Luxury theme
+            tag_str = "  ◆  ".join(cv_data["interests"])
+            c.setFont(_f("Lora", FF), 9)
+            c.setFillColor(cls.TEXT_MED)
+            c.drawCentredString(W / 2, my, tag_str)
+            my -= 18
 
         # Bottom double border
         _draw_rect(c, 0, 3, W, 1, fill=cls.ACCENT2)
@@ -2264,6 +2269,7 @@ class _ExecutivePortrait:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
@@ -2360,6 +2366,11 @@ class _ExecutivePortrait:
                 c.setFillColor(cls.TEXT_LIGHT)
                 c.drawString(MX + 80, my, li.get("level", ""))
                 my -= 12 * _fscale
+
+        # Interests
+        if cv_data.get("interests") and my > 60:
+            my = section_title(L["interests"], my)
+            my = _draw_interests_tags(c, cv_data["interests"], MX, my, MW, "Poppins", 8, cls.TEXT_MED, force_family=FF)
         
         _draw_ats_hidden_keywords(c, cv_data, getattr(cls, 'BODY_BG', getattr(cls, 'BG', None)))
         c.save()
@@ -2391,6 +2402,7 @@ class _ModernProfile:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         _draw_rect(c, 0, 0, SIDEBAR_W, H, fill=cls.SIDEBAR_BG)
@@ -2457,6 +2469,12 @@ class _ModernProfile:
                 c.setFillColor(cls.TEXT_LIGHT)
                 c.drawString(25, sy - 8 * _fscale, li.get("level", ""))
                 sy -= 18 * _fscale
+
+            # Interests in Sidebar
+            if cv_data.get("interests"):
+                sy -= 12 * _fscale
+                sy = sidebar_section(L["interests"], sy)
+                sy = _draw_interests_tags(c, cv_data["interests"], 25, sy, SIDEBAR_W - 50, "Poppins", 7, cls.TEXT_LIGHT, force_family=FF)
 
         # Main content
         my = H - 40 * _fscale
@@ -2545,6 +2563,7 @@ class _CreativeVision:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
@@ -2653,6 +2672,11 @@ class _CreativeVision:
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(MX, my, li.get("lang", "") + " — " + li.get("level", ""))
                 my -= 12 * _fscale
+
+        # Interests
+        if cv_data.get("interests") and my > 60:
+            my = creative_section("CENTRES D'INTÉRÊT", my)
+            my = _draw_interests_tags(c, cv_data["interests"], MX, my, MW, "Poppins", 8, cls.TEXT_MED, force_family=FF)
         
         _draw_ats_hidden_keywords(c, cv_data, getattr(cls, 'BODY_BG', getattr(cls, 'BG', None)))
         c.save()
@@ -2705,6 +2729,7 @@ class _ConsultantPremium:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
@@ -2831,10 +2856,13 @@ class _ConsultantPremium:
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(COL1_X, col1_y, edu.get("degree", "")[:20])
                 col1_y -= 8 * _fscale
-                c.setFont(_f("Poppins", FF), 6)
-                c.setFillColor(cls.TEXT_LIGHT)
                 c.drawString(COL1_X, col1_y, edu.get("school", "")[:20])
                 col1_y -= 12 * _fscale
+
+        # COL1: Interests
+        if cv_data.get("interests") and col1_y > 80:
+            col1_y = col_title(COL1_X, col1_y, L["interests"])
+            col1_y = _draw_interests_tags(c, cv_data["interests"], COL1_X, col1_y, COL_W, "Poppins", 7, cls.TEXT_MED, force_family=FF)
         
         _draw_ats_hidden_keywords(c, cv_data, getattr(cls, 'BODY_BG', getattr(cls, 'BG', None)))
         c.save()
@@ -2864,6 +2892,7 @@ class _CorporateElite:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
@@ -2957,6 +2986,11 @@ class _CorporateElite:
                 c.setFillColor(cls.TEXT_LIGHT)
                 c.drawString(MX + 80, my, li.get("level", ""))
                 my -= 12 * _fscale
+
+        # Interests
+        if cv_data.get("interests") and my > 60:
+            my = section_title(L["interests"], my)
+            my = _draw_interests_tags(c, cv_data["interests"], MX, my, MW, "Poppins", 8, cls.TEXT_MED, force_family=FF)
         
         _draw_ats_hidden_keywords(c, cv_data, getattr(cls, 'BODY_BG', getattr(cls, 'BG', None)))
         c.save()
@@ -2986,6 +3020,7 @@ class _MinimalistPro:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
@@ -3127,6 +3162,7 @@ class _InternationalProfile:
         c = canvas.Canvas(buf, pagesize=A4)
         _prepare_canvas(c, _fscale)
         c.setTitle(cv_data.get("name", "CV") + " — CV")
+        add_ats_metadata(c, cv_data)
         
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         _draw_rect(c, 0, 0, SIDEBAR_W, H, fill=cls.SIDEBAR_BG)
@@ -3194,6 +3230,18 @@ class _InternationalProfile:
                 c.setFillColor(cls.TEXT_MED)
                 c.drawString(15, sy - 20 * _fscale, li.get("level", ""))
                 sy -= 32 * _fscale
+
+            # Interests in Sidebar (Bottom)
+            if cv_data.get("interests"):
+                sy -= 10 * _fscale
+                sy = sidebar_title(L["interests"], sy)
+                sy = _draw_interests_tags(c, cv_data["interests"], 15, sy, SIDEBAR_W - 30, "Poppins", 7, cls.TEXT_DARK, force_family=FF)
+
+            # Interests in Sidebar (Bottom)
+            if cv_data.get("interests"):
+                sy -= 10 * _fscale
+                sy = sidebar_title(L["interests"], sy)
+                sy = _draw_interests_tags(c, cv_data["interests"], 15, sy, SIDEBAR_W - 30, "Poppins", 7, cls.TEXT_DARK, force_family=FF)
         
         # Main content
         my = H - 45 * _fscale

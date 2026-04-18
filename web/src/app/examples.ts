@@ -43,14 +43,14 @@ export const cvExamples = {
       ],
       "skills": {
         "categories": [
-          {"name": "Stratégie", "items": ["Inbound", "ABM", "Go-To-Market", "Branding"]},
-          {"name": "Acquisition", "items": ["SEO", "SEA", "LinkedIn Ads", "Emailing"]},
-          {"name": "Outils", "items": ["HubSpot", "Salesforce", "Google Analytics", "Figma"]}
+          { "name": "Stratégie", "items": ["Inbound", "ABM", "Go-To-Market", "Branding"] },
+          { "name": "Acquisition", "items": ["SEO", "SEA", "LinkedIn Ads", "Emailing"] },
+          { "name": "Outils", "items": ["HubSpot", "Salesforce", "Google Analytics", "Figma"] }
         ]
       },
       "languages": [
-        {"lang": "Français", "level": "Maternelle", "level_num": 5},
-        {"lang": "Anglais", "level": "Courant C1", "level_num": 4}
+        { "lang": "Français", "level": "Maternelle", "level_num": 5 },
+        { "lang": "Anglais", "level": "Courant C1", "level_num": 4 }
       ],
       "certifications": [
         "HubSpot Inbound Marketing Certified",
@@ -104,14 +104,14 @@ export const cvExamples = {
       ],
       "skills": {
         "categories": [
-          {"name": "Frontend", "items": ["React", "Next.js", "TypeScript", "TailwindCSS", "Redux"]},
-          {"name": "Backend", "items": ["Node.js", "Express", "NestJS", "PostgreSQL", "GraphQL"]},
-          {"name": "DevOps", "items": ["Docker", "AWS", "CI/CD", "Jest", "Cypress"]}
+          { "name": "Frontend", "items": ["React", "Next.js", "TypeScript", "TailwindCSS", "Redux"] },
+          { "name": "Backend", "items": ["Node.js", "Express", "NestJS", "PostgreSQL", "GraphQL"] },
+          { "name": "DevOps", "items": ["Docker", "AWS", "CI/CD", "Jest", "Cypress"] }
         ]
       },
       "languages": [
-        {"lang": "Français", "level": "Maternelle", "level_num": 5},
-        {"lang": "Anglais", "level": "Technique B2", "level_num": 3}
+        { "lang": "Français", "level": "Maternelle", "level_num": 5 },
+        { "lang": "Anglais", "level": "Technique B2", "level_num": 3 }
       ],
       "certifications": [
         "AWS Certified Developer",
@@ -165,15 +165,15 @@ export const cvExamples = {
       ],
       "skills": {
         "categories": [
-          {"name": "Sales Ops", "items": ["MEDDPICC", "Challenger Sale", "Salesforce", "Forecasting"]},
-          {"name": "Management", "items": ["Recrutement", "Coaching 1v1", "Territory Mapping"]},
-          {"name": "Stratégie", "items": ["GTM Strategy", "C-Level Negotiation", "Enterprise SaaS"]}
+          { "name": "Sales Ops", "items": ["MEDDPICC", "Challenger Sale", "Salesforce", "Forecasting"] },
+          { "name": "Management", "items": ["Recrutement", "Coaching 1v1", "Territory Mapping"] },
+          { "name": "Stratégie", "items": ["GTM Strategy", "C-Level Negotiation", "Enterprise SaaS"] }
         ]
       },
       "languages": [
-        {"lang": "Français", "level": "Maternelle", "level_num": 5},
-        {"lang": "Anglais", "level": "Bilingue", "level_num": 5},
-        {"lang": "Allemand", "level": "Opérationnel", "level_num": 3}
+        { "lang": "Français", "level": "Maternelle", "level_num": 5 },
+        { "lang": "Anglais", "level": "Bilingue", "level_num": 5 },
+        { "lang": "Allemand", "level": "Opérationnel", "level_num": 3 }
       ],
       "certifications": [
         "J.Barrows Sales Training",
