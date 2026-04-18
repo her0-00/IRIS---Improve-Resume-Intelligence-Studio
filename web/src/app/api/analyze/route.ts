@@ -57,7 +57,6 @@ const GROQ_MODELS = [
   'openai/gpt-oss-20b',
   'qwen/qwen3-32b',
   'llama-3.1-8b-instant',
-  "meta-llama/llama-prompt-guard-2-22",
   'meta-llama/llama-4-scout-17b-16e-instruct'
 ];
 

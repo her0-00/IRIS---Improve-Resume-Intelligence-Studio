@@ -98,7 +98,7 @@ export default function Home() {
   const [selectedTheme, setSelectedTheme] = useState('Classic Dark');
   const [boostMode, setBoostMode] = useState(false);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  const [uiTheme, setUiTheme] = useState<'dark' | 'sota-luxury' | 'violet-electric' | 'emerald-tech' | 'light-premium' | 'obsidian-cyan'>('dark');
+  const [uiTheme, setUiTheme] = useState<'dark' | 'sota-luxury' | 'violet-electric' | 'emerald-tech' | 'light-premium' | 'obsidian-cyan'>('violet-electric');
   const [profilePhoto, setProfilePhoto] = useState<string>('');  // base64
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string>('');
@@ -208,11 +208,14 @@ export default function Home() {
     if (savedTheme) {
       setUiTheme(savedTheme);
       document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+      // Set default theme to violet-electric if no saved theme
+      document.documentElement.setAttribute('data-theme', 'violet-electric');
     }
   }, []);
 
   const cycleUiTheme = () => {
-    const themes: typeof uiTheme[] = ['dark', 'violet-electric', 'emerald-tech', 'obsidian-cyan', 'light-premium', 'sota-luxury'];
+    const themes: typeof uiTheme[] = ['violet-electric', 'dark', 'emerald-tech', 'obsidian-cyan', 'light-premium', 'sota-luxury'];
     const currentIndex = themes.indexOf(uiTheme);
     const nextTheme = themes[(currentIndex + 1) % themes.length];
     setUiTheme(nextTheme);

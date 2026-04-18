@@ -433,7 +433,7 @@ def _parse_markdown(text):
     return parts if parts else [(text, 'normal')]
 
 
-def _draw_multiline(c, text, x, y, font, size, color, max_width, line_height, dry_run=False, force_family=None):
+def _draw_multiline(c, text, x, y, font, size, color, max_width, line_height, align='left', dry_run=False, force_family=None):
     """Draw text with word-wrap and markdown support. returns the new y position."""
     text = _sanitize_text(text)
     fscale = getattr(c, "_fscale", 1.0)
@@ -490,7 +490,23 @@ def _draw_multiline(c, text, x, y, font, size, color, max_width, line_height, dr
     # Draw lines with styles
     c.setFillColor(color)
     for line_words in lines:
-        cx = x
+        line_w = 0
+        if align == 'center':
+            # Calculate total width for centering
+            for i, (word, style) in enumerate(line_words):
+                if style == 'bold':
+                    word_font = _f(font.replace('Regular', 'Bold').replace('Light', 'Bold').replace('Medium', 'Bold') if 'Bold' not in font else font, force_family=force_family)
+                elif style == 'italic':
+                    word_font = _f(font.replace('Regular', 'Italic').replace('Bold', 'Bold') if 'Italic' not in font else font, force_family=force_family)
+                else:
+                    word_font = base_font
+                line_w += c.stringWidth(word, word_font, size)
+                if i < len(line_words) - 1:
+                    line_w += c.stringWidth(' ', base_font, size)
+            cx = x + (max_width - line_w) / 2
+        else:
+            cx = x
+            
         for i, (word, style) in enumerate(line_words):
             # Get font for this style
             if style == 'bold':
@@ -896,6 +912,34 @@ class _ClassicDark:
                     my = _draw_multiline(c, edu["detail"], MX + 10, my, "Poppins", 7.8, cls.TEXT_LIGHT, MW - 12, 11)
                 else:
                     my -= 16
+
+        # Skills (AFTER Edu)
+        if cv_data.get("skills", {}).get("categories"):
+            if my < 100 * _fscale: my = new_page()
+            my = section_title(L["skills"], my)
+            for cat in cv_data["skills"]["categories"]:
+                if my < 60 * _fscale: my = new_page(); my = section_title(L["skills"], my)
+                c.setFont(_f("Poppins-Bold", FF), 8)
+                c.setFillColor(cls.TEXT_DARK)
+                c.drawString(MX + 10, my, cat.get("name", "").upper())
+                my -= 12 * _fscale
+                tx = MX + 10
+                for skill in cat.get("items", []):
+                    if my < 50 * _fscale: 
+                        my = new_page()
+                        my = section_title(L["skills"], my)
+                        tx = MX + 10
+                    sw_tag = c.stringWidth(skill, _f("Poppins", FF), 7) + 12
+                    if tx + sw_tag > MX + MW:
+                        tx = MX + 10
+                        my -= 18 * _fscale
+                    tag_h = 14 * _fscale
+                    _draw_rect(c, tx, my - 10, sw_tag, tag_h, fill=cls.SIDEBAR_BG, radius=3)
+                    c.setFont(_f("Poppins", FF), 7)
+                    c.setFillColor(cls.WHITE)
+                    c.drawString(tx + 6, my - 6, skill)
+                    tx += sw_tag + 5
+                my -= 24 * _fscale
 
         # Languages (Classic Dark style)
         if cv_data.get("languages") and my > 80:
@@ -1650,19 +1694,33 @@ class _LuxurySerif:
                 else:
                     my -= 14
 
-        # Skills — elegant inline
+        # Skills — elegant tag layout (prevents overflow)
         if cv_data.get("skills", {}).get("categories"):
             if my < 100: my = new_page()
             my = section_title("Compétences", my)
             for cat in cv_data["skills"]["categories"]:
-                c.setFont(_f("Poppins-Bold", FF), 7.5)
-                c.setFillColor(cls.ACCENT)
-                c.drawString(MX, my, cat.get("name", "") + " :")
-                label_w = c.stringWidth(cat.get("name", "") + " :", _f("Poppins-Bold", FF), 7.5) + 8
-                c.setFont(_f("Poppins", FF), 7.5)
-                c.setFillColor(cls.TEXT_MED)
-                c.drawString(MX + label_w, my, "  ·  ".join(cat.get("items", [])))
-                my -= 14
+                if my < 60: my = new_page(); my = section_title("Compétences", my)
+                c.setFont(_f("Poppins-Bold", FF), 8)
+                c.setFillColor(cls.TEXT_DARK)
+                c.drawString(MX, my, cat.get("name", "").upper())
+                my -= 12 * _fscale
+                tx = MX
+                for skill in cat.get("items", []):
+                    if my < 45 * _fscale: 
+                        my = new_page()
+                        my = section_title("Compétences", my)
+                        tx = MX
+                    sw_tag = c.stringWidth(skill, _f("Poppins", FF), 7) + 12
+                    if tx + sw_tag > MX + MW:
+                        tx = MX
+                        my -= 18 * _fscale
+                    tag_h = 14 * _fscale
+                    _draw_rect(c, tx, my - 10, sw_tag, tag_h, fill=cls.HEADER_BG, radius=3)
+                    c.setFont(_f("Poppins", FF), 7)
+                    c.setFillColor(HexColor("#FFFFFF"))
+                    c.drawString(tx + 6, my - 6, skill)
+                    tx += sw_tag + 5
+                my -= 24 * _fscale
 
         # Languages
         if cv_data.get("languages"):
@@ -2126,6 +2184,12 @@ class _ExecutivePortrait:
         c.setTitle(cv_data.get("name", "CV") + " — CV")
         add_ats_metadata(c, cv_data)
         
+        def new_page():
+            c.showPage()
+            _draw_rect(c, 0, 0, W, H, fill=cls.BG)
+            _draw_rect(c, 0, H - HEADER_H, W, HEADER_H, fill=cls.HEADER_BG)
+            return H - HEADER_H - 10 * _fscale
+
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
         # Header with photo
@@ -2214,14 +2278,14 @@ class _ExecutivePortrait:
         if cv_data.get("skills", {}).get("categories"):
             my = section_title(L["skills"], my)
             for cat in cv_data["skills"]["categories"]:
-                if my < 60: my = new_page()
+                if my < 60 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 8)
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(MX, my, cat.get("name", "").upper())
                 my -= 12 * _fscale
                 tx = MX
                 for skill in cat.get("items", []):
-                    if my < 50: 
+                    if my < 50 * _fscale: 
                         my = new_page()
                         my = section_title(L["skills"], my)
                         tx = MX
@@ -2238,10 +2302,10 @@ class _ExecutivePortrait:
                 my -= 24 * _fscale
 
         # Languages
-        if cv_data.get("languages") and my > 80:
+        if cv_data.get("languages") and my > 80 * _fscale:
             my = section_title(L["languages"], my)
             for li in cv_data["languages"]:
-                if my < 60: break
+                if my < 60 * _fscale: break
                 c.setFont(_f("Poppins-Medium", FF), 8)
                 c.setFillColor(getattr(cls, 'ROLE_COLOR', cls.TEXT_DARK))
                 c.drawString(MX, my, li.get("lang", ""))
@@ -2298,49 +2362,51 @@ class _ModernProfile:
         title = cv_data.get("title", "")
         photo = cv_data.get("profile_photo")
         
-        # Calculate Header Height
+        # Initial coordinate setup
+        hx = MX
+        hw = MW
         hy = H - 50
         PHOTO_SIZE = 100 * _fscale
         
-        # If photo exists, we do a split header or photo above name
         if photo:
-            _draw_photo(c, photo, MX, H - PHOTO_SIZE - 40, PHOTO_SIZE, 'square', 
-                       border_color=getattr(cls, 'PHOTO_BORDER', cls.ACCENT), border_width=3)
-            hx = MX + PHOTO_SIZE + 25
-            hw = MW - PHOTO_SIZE - 25
-        else:
-            hx = MX
-            hw = MW
+            hx = MX + PHOTO_SIZE + 25 * _fscale
+            hw = MW - PHOTO_SIZE - 25 * _fscale
             
-        hy = _draw_wrapped_header(c, name, hx, hy, "Poppins-Bold", 30, HexColor("#FFFFFF"), hw, 34, dry_run=True)
-        hy -= 4
-        hy = _draw_wrapped_header(c, title, hx, hy, "Poppins-Light", 14, cls.ACCENT, hw, 18, dry_run=True)
-        cy = _draw_wrapped_contact(c, cv_data, hx, hy - 12 * _fscale, hw, "Poppins", 8, cls.TEXT_LIGHT, "  |  ", dry_run=True)
+        # 1. Dry run to calculate Header Height
+        dhy = _draw_wrapped_header(c, name, hx, hy, "Poppins-Bold", 30, HexColor("#FFFFFF"), hw, 34, dry_run=True)
+        dhy -= 4
+        dhy = _draw_wrapped_header(c, title, hx, dhy, "Poppins-Light", 14, cls.ACCENT, hw, 18, dry_run=True)
+        dcy = _draw_wrapped_contact(c, cv_data, hx, dhy - 12 * _fscale, hw, "Poppins", 8, cls.TEXT_LIGHT, "  |  ", dry_run=True)
         
-        HEADER_BOT = min(hy, cy) - 30
-        if photo: HEADER_BOT = min(HEADER_BOT, H - PHOTO_SIZE - 70)
-        
+        HEADER_BOT = min(dhy, dcy) - 30 * _fscale
+        if photo: HEADER_BOT = min(HEADER_BOT, H - PHOTO_SIZE - 70 * _fscale)
         HEADER_H = H - HEADER_BOT
+
+        # 2. Draw Background Layer
         _draw_rect(c, 0, HEADER_BOT, W, HEADER_H, fill=cls.SIDEBAR_BG)
         _draw_rect(c, 0, H - 4, W, 4, fill=cls.ACCENT)
 
-        # Draw content
+        # 3. Draw Content Layer on Top
         hy = H - 50
         hy = _draw_wrapped_header(c, name, hx, hy, "Poppins-Bold", 30, getattr(cls, 'NAME_COLOR', HexColor("#FFFFFF")), hw, 34, force_family=FF)
         hy -= 4
         hy = _draw_wrapped_header(c, title, hx, hy, "Poppins-Light", 14, getattr(cls, 'TITLE_COLOR', cls.ACCENT), hw, 18, force_family=FF)
         _draw_wrapped_contact(c, cv_data, hx, hy - 12 * _fscale, hw, "Poppins", 8, getattr(cls, 'CONTACT_COLOR', cls.TEXT_LIGHT), "  |  ", force_family=FF)
 
+        if photo:
+            _draw_photo(c, photo, MX, H - PHOTO_SIZE - 40 * _fscale, PHOTO_SIZE, 'square', 
+                       border_color=getattr(cls, 'PHOTO_BORDER', cls.ACCENT), border_width=3 * _fscale)
+
         my = HEADER_BOT - 35
 
         def section_title(t, y):
-            if y < 80: y = new_page()
+            if y < 80 * _fscale: y = new_page()
             c.setFont(_f("Poppins-Bold", FF), 10)
             c.setFillColor(cls.ACCENT)
             c.drawString(MX, y, t.upper())
             c.setStrokeColor(cls.ACCENT)
-            c.setLineWidth(1.5)
-            c.line(MX, y - 5, MX + 40, y - 5)
+            c.setLineWidth(1.5 * _fscale)
+            c.line(MX, y - 5 * _fscale, MX + 40 * _fscale, y - 5 * _fscale)
             return y - 24 * _fscale
 
         # Summary
@@ -2351,7 +2417,7 @@ class _ModernProfile:
         if cv_data.get("experiences"):
             my = section_title(L["experience"], my)
             for exp in cv_data["experiences"]:
-                if my < 110: my = new_page()
+                if my < 110 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10.5)
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(MX, my, exp.get("role", ""))
@@ -2366,7 +2432,7 @@ class _ModernProfile:
                 c.drawString(MX, my, exp_line)
                 my -= 14 * _fscale
                 for bullet in exp.get("bullets", []):
-                    if my < 45: my = new_page()
+                    if my < 45 * _fscale: my = new_page()
                     bullet_y = my
                     c.setFont(_f("Poppins-Bold", FF), 10)
                     c.setFillColor(cls.ACCENT)
@@ -2378,7 +2444,7 @@ class _ModernProfile:
         if cv_data.get("education"):
             my = section_title(L["education"], my)
             for edu in cv_data["education"]:
-                if my < 70: my = new_page()
+                if my < 70 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10)
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(MX, my, edu.get("degree", ""))
@@ -2393,14 +2459,14 @@ class _ModernProfile:
         if cv_data.get("skills", {}).get("categories"):
             my = section_title(L["skills"], my)
             for cat in cv_data["skills"]["categories"]:
-                if my < 60: my = new_page()
+                if my < 60 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 8.5)
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(MX, my, cat.get("name", "").upper())
                 my -= 12 * _fscale
                 tx = MX
                 for skill in cat.get("items", []):
-                    if my < 50: 
+                    if my < 50 * _fscale: 
                         my = new_page()
                         my = section_title(L["skills"], my)
                         tx = MX
@@ -2408,11 +2474,11 @@ class _ModernProfile:
                     if tx + sw_tag > MX + MW:
                         tx = MX
                         my -= 18 * _fscale
-                    _draw_rect(c, tx, my - 10, sw_tag, 14, fill=cls.SIDEBAR_BG, radius=3)
+                    _draw_rect(c, tx, my - 10, sw_tag, 14 * _fscale, fill=cls.SIDEBAR_BG, radius=3)
                     c.setFont(_f("Poppins", FF), 7.5)
                     c.setFillColor(HexColor("#FFFFFF"))
-                    c.drawString(tx + 6, my - 6, skill)
-                    tx += sw_tag + 5
+                    c.drawString(tx + 6, my - 6 * _fscale, skill)
+                    tx += sw_tag + 5 * _fscale
                 my -= 24 * _fscale
 
         # Languages
@@ -2661,7 +2727,7 @@ class _ConsultantPremium:
             c.showPage()
             _draw_rect(c, 0, 0, W, H, fill=cls.BG)
             _draw_rect(c, 0, H - 2, W, 2, fill=cls.ACCENT)
-            return H - 60
+            return H - 60 * _fscale
 
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         _draw_rect(c, 0, H - 2, W, 2, fill=cls.ACCENT)
@@ -2677,9 +2743,9 @@ class _ConsultantPremium:
             my -= (PHOTO_SIZE + 20)
         
         name = cv_data.get("name", "")
-        my = _draw_wrapped_header(c, name, 50, my, "Lora", 24, getattr(cls, 'NAME_COLOR', cls.TEXT_DARK), W - 100, 28, align='center')
+        my = _draw_wrapped_header(c, name, 50, my, "Lora", 24, getattr(cls, 'NAME_COLOR', cls.TEXT_DARK), W - 100, 28, centered=True)
         my -= 4
-        my = _draw_wrapped_header(c, cv_data.get("title", ""), 50, my, "Poppins-Light", 10, getattr(cls, 'TITLE_COLOR', cls.ACCENT), W - 100, 14, align='center', force_family=FF)
+        my = _draw_wrapped_header(c, cv_data.get("title", ""), 50, my, "Poppins-Light", 10, getattr(cls, 'TITLE_COLOR', cls.ACCENT), W - 100, 14, centered=True, force_family=FF)
         my -= 15
         
         my = _draw_wrapped_centred_contact(c, cv_data, W/2, my, W - 100, "Poppins", 8, getattr(cls, 'CONTACT_COLOR', cls.TEXT_LIGHT), "  |  ", force_family=FF)
@@ -2691,13 +2757,13 @@ class _ConsultantPremium:
         my -= 20 * _fscale
 
         def section_title(t, y):
-            if y < 80: y = new_page()
+            if y < 80 * _fscale: y = new_page()
             c.setFont(_f("Poppins-Bold", FF), 8)
             c.setFillColor(cls.ACCENT)
             c.drawCentredString(W/2, y, t.upper())
             c.setStrokeColor(cls.ACCENT2)
-            c.setLineWidth(1.2)
-            c.line(W/2 - 20, y - 5, W/2 + 20, y - 5)
+            c.setLineWidth(1.2 * _fscale)
+            c.line(W/2 - 20 * _fscale, y - 5 * _fscale, W/2 + 20 * _fscale, y - 5 * _fscale)
             return y - 22 * _fscale
 
         # Summary
@@ -2708,7 +2774,7 @@ class _ConsultantPremium:
         if cv_data.get("experiences"):
             my = section_title(L["experience"], my)
             for exp in cv_data["experiences"]:
-                if my < 110: my = new_page()
+                if my < 110 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10)
                 c.setFillColor(cls.TEXT_DARK)
                 c.drawString(MX, my, exp.get("role", ""))
@@ -2721,7 +2787,7 @@ class _ConsultantPremium:
                 c.drawString(MX, my, exp.get("company", ""))
                 my -= 14 * _fscale
                 for bullet in exp.get("bullets", []):
-                    if my < 45: my = new_page()
+                    if my < 45 * _fscale: my = new_page()
                     bullet_y = my
                     c.setFont(_f("Poppins-Bold", FF), 8)
                     c.setFillColor(cls.ACCENT2)
@@ -2750,7 +2816,7 @@ class _ConsultantPremium:
             if my < 100 * _fscale: my = new_page()
             my = section_title(L["skills"], my)
             for cat in cv_data["skills"]["categories"]:
-                if my < 60: my = new_page()
+                if my < 60 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 8.5)
                 c.setFillColor(cls.ACCENT2)
                 c.drawString(MX, my, cat.get("name", "").upper())
@@ -2966,6 +3032,11 @@ class _MinimalistPro:
         c.setTitle(cv_data.get("name", "CV") + " — CV")
         add_ats_metadata(c, cv_data)
         
+        def new_page():
+            c.showPage()
+            _draw_rect(c, 0, 0, W, H, fill=cls.BG)
+            return H - 60 * _fscale
+
         _draw_rect(c, 0, 0, W, H, fill=cls.BG)
         
         # Header CENTRÉ (comme demandé par la description de l'UI)
@@ -3069,10 +3140,10 @@ class _MinimalistPro:
                 my -= 14 * _fscale
         
         # Languages
-        if cv_data.get("languages") and my > 80:
+        if cv_data.get("languages") and my > 80 * _fscale:
             my = section_title("Langues", my)
             for li in cv_data["languages"]:
-                if my < 60: break
+                if my < 60 * _fscale: break
                 c.setFont(_f("Poppins-Medium", FF), 8)
                 c.setFillColor(getattr(cls, 'ROLE_COLOR', cls.TEXT_DARK))
                 c.drawString(MX, my, li.get("lang", "") + " — " + li.get("level", ""))
