@@ -5,101 +5,41 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 const STEPS = [
   {
     target: '.brand',
-    title: 'Bienvenue sur RecruitIQ ⬡',
-    desc: 'L\'outil qui analyse votre CV avec l\'IA, l\'optimise pour les ATS et génère un PDF pixel-perfect en 15 thèmes premium.',
-    position: 'right' as const,
-  },
-  {
-    target: '.input-field[placeholder="gsk_••••••••••"]',
-    title: '🔑 Clé API Groq',
-    desc: 'Entrez votre clé API Groq gratuite (console.groq.com). Elle permet à l\'IA d\'analyser votre CV avec llama-3.3-70b.',
-    position: 'right' as const,
-  },
-  {
-    target: 'textarea.input-field',
-    title: '📋 Offre d\'emploi cible',
-    desc: 'Collez l\'offre d\'emploi. L\'IA compare votre CV à l\'offre et identifie les keywords manquants pour maximiser vos chances.',
+    title: 'Bienvenue sur RecruitIQ ⧡',
+    desc: 'La plateforme tout-en-un : analysez votre CV avec l\'IA, optimisez-le pour les ATS, comparez-le aux systèmes ATS réels, exportez en 26 thèmes PDF premium et matchez avec des offres d\'emploi en temps réel.',
     position: 'right' as const,
   },
   {
     target: '.file-drop',
-    title: '📄 Upload votre CV',
-    desc: 'Uploadez votre CV en PDF. L\'IA extrait le texte avec pdfminer.six et l\'analyse automatiquement.',
-    position: 'right' as const,
-  },
-  {
-    target: '[data-tour="boost"]',
-    title: '⚡ Mode Boost Marché',
-    desc: 'Activez ce mode pour que l\'IA enrichisse vos expériences avec les compétences du poste. Résultat plus compétitif — à relire avant envoi.',
-    position: 'right' as const,
-  },
-  {
-    target: '[data-tour="lang"]',
-    title: '🌍 Langue de génération',
-    desc: 'Choisissez si votre CV optimisé doit être rédigé en Français ou en English. L\'IA adapte le style et le vocabulaire.',
-    position: 'right' as const,
-  },
-  {
-    target: '.btn-primary',
-    title: '🚀 Lancer l\'audit complet',
-    desc: 'Cliquez pour lancer l\'analyse : score ATS 0-100, keywords manquants, psychologie du recruteur, estimation salariale, et réécriture optimisée.',
-    position: 'right' as const,
-  },
-  {
-    target: '.example-cvs',
-    title: '📚 Templates prêts à l\'emploi',
-    desc: 'Pas de CV sous la main ? Chargez un exemple (Marketing Leader, Senior Dev, Sales Director) pour voir l\'app en action immédiatement.',
+    title: '📄 1. Uploadez votre CV',
+    desc: 'Déposez votre CV PDF + collez une offre d\'emploi. L\'IA extrait, analyse votre score ATS 0-100 et réécrit votre CV pour maximiser vos chances. La clé Groq (gratuite) alimente toute l\'analyse.',
     position: 'right' as const,
   },
   {
     target: '.kpis',
-    title: '📊 KPIs en temps réel',
-    desc: 'Score global 0-100, probabilité de passage ATS, et écart salarial estimé. Ces métriques vous montrent où vous en êtes.',
+    title: '📊 2. Audit ATS + Comparaison',
+    desc: 'Score global, keywords présents/manquants, insights psychologiques du recruteur, estimation salariale. Le Simulateur ATS compare votre CV aux systèmes réels : Greenhouse, Lever, Workday, SAP SuccessFactors...',
     position: 'bottom' as const,
   },
   {
     target: '.tabs',
-    title: '🎯 4 onglets d\'analyse',
-    desc: 'Audit (insights psycho), Sections (scores détaillés), Edit Content (JSON éditable), et PDF Export (15 thèmes premium).',
+    title: '✏️ 3. Edit Content',
+    desc: 'Éditez votre CV structuré en JSON. Auto-sauvegarde après 3 min d\'inactivité. Erreurs de syntaxe signalées en temps réel. Utilisez "Save & Export" pour forcer la génération immédiate.',
     position: 'bottom' as const,
   },
   {
-    target: '.keywords-grid',
-    title: '🔍 Analyse des keywords',
-    desc: 'Keywords présents (en vert) vs manquants (en rouge). Ajoutez les keywords manquants pour passer les filtres ATS.',
-    position: 'top' as const,
-  },
-  {
     target: '[data-tour="pdf-tab"]',
-    title: '📄 Passons à l\'export PDF',
-    desc: 'Cliquez sur l\'onglet "🎨 CV PDF Export" pour découvrir les thèmes et la personnalisation. Je vais vous y emmener...',
+    title: '🎨 4. CV PDF Export',
+    desc: '26 thèmes premium (16 Standard + 10 ATS-Optimized). Personnalisez couleurs, polices, taille. Brand Accent, détails formations, catégories compétences en gras — tout s\'intègre automatiquement.',
     position: 'bottom' as const,
     action: 'switchToPdfTab' as const,
   },
   {
-    target: '[data-tour="all-themes"]',
-    title: '🌈 15 thèmes premium',
-    desc: '5 catégories : Classic, Canva, Nordic, TechGrid. Chaque thème est optimisé ATS et exportable en PDF pixel-perfect.',
-    position: 'top' as const,
-  },
-  {
-    target: '[data-tour="customization"]',
-    title: '🎨 CV Studio Customization',
-    desc: 'Personnalisez les couleurs (nom, titres, texte, accent, backgrounds) et la taille de police. Preview en temps réel !',
-    position: 'top' as const,
-  },
-  {
-    target: '[data-tour="generate-pdf-btn"]',
-    title: '🎬 Générons le PDF',
-    desc: 'Cliquez sur "GENERATE PDF PREVIEW" pour voir le résultat. Je vais le faire pour vous...',
-    position: 'top' as const,
-    action: 'generatePdf' as const,
-  },
-  {
-    target: '.visual-edit-toggle',
-    title: '✏️ Mode Édition Visuelle',
-    desc: 'Cliquez ici pour activer l\'éditeur visuel. Cliquez n\'importe où sur le PDF, choisissez un champ, et éditez directement !',
-    position: 'top' as const,
+    target: '.tabs',
+    title: '💼 5. Smart Job Matcher',
+    desc: 'Connectez Adzuna (clé gratuite) pour trouver les offres qui matchent votre profil. Filtre géo strict, tags sémantiques éditables, scoring basé sur vos compétences CV — sans consommer de tokens IA.',
+    position: 'bottom' as const,
+    action: 'switchToJobTab' as const,
   },
 ];
 
@@ -161,9 +101,16 @@ export default function OnboardingTour() {
             el => el.textContent?.includes('PDF Export')
           ) as HTMLElement;
           if (pdfTab) pdfTab.click();
-        } catch (e) {
-          console.log('Could not switch tab:', e);
-        }
+        } catch (e) { console.log('Could not switch tab:', e); }
+      }, 800);
+    } else if (currentStep.action === 'switchToJobTab') {
+      actionTimeout = setTimeout(() => {
+        try {
+          const jobTab = Array.from(document.querySelectorAll('.tab')).find(
+            el => el.textContent?.includes('Job') || el.textContent?.includes('Match')
+          ) as HTMLElement;
+          if (jobTab) jobTab.click();
+        } catch (e) { console.log('Could not switch to job tab:', e); }
       }, 800);
     } else if (currentStep.action === 'generatePdf') {
       actionTimeout = setTimeout(() => {
@@ -190,15 +137,12 @@ export default function OnboardingTour() {
   const startTour = () => { setShow(false); setActive(true); setStep(0); };
   const startDemo = () => {
     setShow(false);
-    // Trigger demo mode - click on first example CV
+    // Charge le 1er exemple de CV pour la démo
     setTimeout(() => {
       const exampleBtn = document.querySelector('.example-cv-btn') as HTMLButtonElement;
       if (exampleBtn) exampleBtn.click();
-      // Start tour after demo loads
-      setTimeout(() => {
-        setActive(true);
-        setStep(0);
-      }, 1000);
+      // Démarre le tour après chargement
+      setTimeout(() => { setActive(true); setStep(0); }, 1500);
     }, 300);
   };
   const skip = () => { setShow(false); localStorage.setItem('recruitiq_tour_done', '1'); };
@@ -277,9 +221,15 @@ export default function OnboardingTour() {
               fontSize: '1.4rem'
             }}>⬡</div>
             <h2 style={{ fontSize: '1.6rem', marginBottom: '0.6rem' }}>Bienvenue sur RecruitIQ</h2>
-            <p style={{ color: 'var(--text2)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-              Votre CV passe-t-il les filtres ATS ? Découvrez toutes les fonctionnalités en 2 minutes avec notre visite guidée interactive.
+            <p style={{ color: 'var(--text2)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '0.8rem' }}>
+              Votre CV passe-t-il les filtres ATS ? Analyse IA, comparaison multi-ATS, 26 thèmes PDF et matching d\'offres en temps réel.
             </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.5rem', fontSize: '0.72rem', color: 'var(--text3)' }}>
+              <span>📊 Audit ATS</span><span>·</span>
+              <span>🤖 Simulateur multi-ATS</span><span>·</span>
+              <span>🎨 26 thèmes PDF</span><span>·</span>
+              <span>💼 Smart Job Matcher</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: '1.5rem' }}>
               <button
                 onClick={startDemo}
@@ -292,7 +242,7 @@ export default function OnboardingTour() {
                   boxShadow: '0 4px 16px rgba(212, 168, 83, 0.3)'
                 }}
               >
-                🎯 Démo Complète + Visite (Recommandé)
+                🎯 Démo Complète (CV pré-chargé + Tour)
               </button>
               <button
                 onClick={startTour}
@@ -304,7 +254,7 @@ export default function OnboardingTour() {
                   textTransform: 'uppercase', cursor: 'pointer'
                 }}
               >
-                ▶ Visite Guidée Uniquement
+                ▶ Visite Guidée (Mon propre CV)
               </button>
             </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>

@@ -1739,7 +1739,7 @@ export default function Home() {
                       <input type="text" className="input-field" placeholder="Adzuna App ID" value={adzunaAppId} onChange={(e) => { setAdzunaAppId(e.target.value); localStorage.setItem('adzunaAppId', e.target.value); }} style={{ width: '120px', fontSize: '0.7rem', padding: '4px 8px' }} />
                       <input type="password" className="input-field" placeholder="Adzuna App Key" value={adzunaAppKey} onChange={(e) => { setAdzunaAppKey(e.target.value); localStorage.setItem('adzunaAppKey', e.target.value); }} style={{ width: '150px', fontSize: '0.7rem', padding: '4px 8px' }} />
                     </div>
-                    <a href="https://developer.adzuna.com/signup" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.65rem', color: 'var(--cyan)', textDecoration: 'none' }}>Obtenir une clé (Gratuit) &rarr;</a>
+                    <a href="https://developer.adzuna.com/signup" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.65rem', color: 'var(--cyan)', textDecoration: 'none' }}>Obtenir une clé (Gratuit) ou laisser vide&rarr;</a>
                   </div>
                 </div>
 
