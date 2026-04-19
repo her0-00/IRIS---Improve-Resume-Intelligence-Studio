@@ -483,18 +483,25 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
       return { lang: typeof l.lang === 'string' ? l.lang : '', level, level_num: num };
     });
 
-    // Normalize experiences: strings ÔåÆ {role, company, period, location, bullets}
+    // Normalize experiences: strings → {role, company, period, location, bullets}
     const rawExp = Array.isArray(llmFields.experiences) ? llmFields.experiences : [];
     const experiences = rawExp.map((e: any) => {
       if (typeof e === 'string') {
         return { role: e, company: '', period: '', location: '', bullets: [] };
       }
+      // Clean markdown from bullets
+      const cleanBullets = Array.isArray(e.bullets) 
+        ? e.bullets
+            .filter((b: any) => typeof b === 'string')
+            .map((b: string) => b.replace(/\*\*/g, '').replace(/\*/g, ''))
+        : [];
+      
       return {
         role: typeof e.role === 'string' ? e.role : '',
         company: typeof e.company === 'string' ? e.company : '',
         period: typeof e.period === 'string' ? e.period : (e.period ?? ''),
         location: typeof e.location === 'string' ? e.location : '',
-        bullets: Array.isArray(e.bullets) ? e.bullets.filter((b: any) => typeof b === 'string') : [],
+        bullets: cleanBullets,
       };
     });
 
@@ -516,19 +523,19 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
 
     const cvDataStructured = {
       name:           String(llmFields.name || llmFields.nom || ''),
-      title:          String(llmFields.title || llmFields.titre || ''),
+      title:          String(llmFields.title || llmFields.titre || '').replace(/\*\*/g, '').replace(/\*/g, ''),
       email:          typeof llmFields.email    === 'string' ? llmFields.email    : null,
       phone:          typeof llmFields.phone    === 'string' ? llmFields.phone    : null,
       location:       typeof llmFields.location === 'string' ? llmFields.location : null,
       linkedin:       typeof llmFields.linkedin === 'string' ? llmFields.linkedin : null,
       github:         typeof llmFields.github   === 'string' ? llmFields.github   : null,
-      summary:        String(llmFields.summary || llmFields.résumé || llmFields.profil || ''),
+      summary:        String(llmFields.summary || llmFields.résumé || llmFields.profil || '').replace(/\*\*/g, '').replace(/\*/g, ''),
       experiences,
       education,
-      certifications: Array.isArray(llmFields.certifications) ? llmFields.certifications.filter((c: any) => typeof c === 'string') : [],
+      certifications: Array.isArray(llmFields.certifications) ? llmFields.certifications.filter((c: any) => typeof c === 'string').map((c: string) => c.replace(/\*\*/g, '').replace(/\*/g, '')) : [],
       skills,
       languages,
-      interests: Array.isArray(interests) ? interests.filter((i: any) => typeof i === 'string') : [],
+      interests: Array.isArray(interests) ? interests.filter((i: any) => typeof i === 'string').map((i: string) => i.replace(/\*\*/g, '').replace(/\*/g, '')) : [],
       score_before: currentScore,
       score_after:  Math.min(currentScore + 15, 100),
     };
