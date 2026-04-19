@@ -25,8 +25,8 @@ def main():
         
         with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
             for page in pdf.pages:
-                # Extract visible text
-                page_text = page.extract_text()
+                # Extract visible text with lowered x_tolerance to prevent glued words
+                page_text = page.extract_text(x_tolerance=1, y_tolerance=3)
                 if page_text:
                     text += page_text + "\n"
                 

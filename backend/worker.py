@@ -5,6 +5,7 @@ import json
 import io
 import traceback
 from backend.pdf_cv import THEMES, _ClassicDark
+from backend.docx_cv import generate_cv_docx
 
 def get_theme_class(theme_name):
     return THEMES.get(theme_name, _ClassicDark)
@@ -16,6 +17,10 @@ def generate_pdf(cv_data, theme="Classic Dark", is_cover_letter=False):
     # The new structure has `generate` method on the theme class
     pdf_bytes = theme_cls.generate(cv_data)
     return pdf_bytes
+
+def generate_docx(cv_data):
+    """Generate DOCX format CV."""
+    return generate_cv_docx(cv_data)
 
 def main():
     try:
@@ -35,6 +40,7 @@ def main():
         cv_data = data.get("cv_data", {})
         theme = data.get("theme", "Classic Dark")
         is_cover_letter = data.get("is_cover_letter", False)
+        output_format = data.get("output_format") or data.get("format", "pdf")  # Support both keys
 
         # Sanitize: replace None lists/strings with safe defaults
         experiences = [e for e in (cv_data.get("experiences") or []) if isinstance(e, (dict, str))]
@@ -95,14 +101,19 @@ def main():
         if custom_style and not isinstance(custom_style, dict):
             cv_data["custom_style"] = {}
 
-        pdf_bytes = generate_pdf(cv_data, theme, is_cover_letter)
+        # Generate based on format
+        if output_format == "docx":
+            output_bytes = generate_docx(cv_data)
+        else:
+            output_bytes = generate_pdf(cv_data, theme, is_cover_letter)
         
         # Write bytes payload directly to stdout 
         # (Alternatively base64 encode it so it can be safely sent as JSON)
         import base64
-        b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+        b64_output = base64.b64encode(output_bytes).decode('utf-8')
         
-        output = {"success": True, "pdf_base64": b64_pdf}
+        output_key = "pdf_base64" if output_format == "pdf" else "docx_base64"
+        output = {"success": True, output_key: b64_output}
         result = json.dumps(output)
         if len(sys.argv) == 3:
             with open(sys.argv[2], 'w', encoding='utf-8') as f:

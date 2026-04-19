@@ -17,9 +17,13 @@
 | **ATS Forensic Audit** | Identifies why robots (Workday, Taleo, iCIMS) are flagging your CV. |
 | **Psychological Insights** | AI analyzes why a human recruiter might ignore or underpay you. |
 | **Market Value Benchmarking** | Estimates your salary potential and identifies the "Salary Gap". |
-| **Semantic Keyword Injection** | Automatically matches your skills to the specific job offer context. |
+| **Semantic Keyword Injection** | Automatically matches your skills to the specific job offer context using ethical reformulation (CareerOps-inspired). |
+| **Job Search Integration** | Search 1000+ job offers via Adzuna API (requires free API key). |
+| **CV Comparison** | Myers' diff algorithm with word-level highlighting to visualize AI improvements. |
+| **ATS Simulator** | Extract and score your PDF exactly as ATS systems would see it. |
 | **CV Studio Pro** | Generates pixel-perfect PDFs in 32 premium themes with full customization. |
 | **Profile Photo Integration** | Upload and embed professional photos in 10 specialized photo-enabled themes. |
+| **DOCX Export** | Download editable Word format for further customization. |
 | **3 AI Providers** | Choose between Groq, Mistral AI, or Google AI (Gemini) for analysis. |
 
 ---
@@ -27,16 +31,29 @@
 ## 🛠️ Core Utility Features
 
 ### 🔍 Deep Audit & Scoring
-Don't guess your chances. Get a precise **Score (0-100)**, a **Pass Probability**, and a **Market Verdict**. RecruitIQ scans for:
+Don't guess your chances. Get a precise **Score (0-100)**, a **Pass Probability**, and a **Market Verdict**. RIIS scans for:
 - **Missing Keywords**: Specific technical and soft skills the ATS is looking for.
 - **Content Density**: Evaluates if your experience matches the seniority level.
 - **Recruiter Psychology**: Explains the "Shadow Profile" you present to hiring managers.
+- **CV Comparison**: Myers' diff algorithm with word-level highlighting (side-by-side & unified views).
+- **ATS Simulator**: Extract text exactly as ATS systems see it with compatibility scoring.
 
 ### 🧠 Intelligent AI Rewriting
 Powered by **3 AI Providers** (Groq, Mistral AI, Google AI), RIIS doesn't just "fix" your CV; it transforms it:
 - **Boost Mode**: Enriches your experience with hidden accomplishments relevant to the job.
+- **Ethical Keyword Injection**: Reformulates existing experience with job offer vocabulary without inventing skills (inspired by [CareerOps](https://github.com/santifer/career-ops)).
+- **Quantifiable Impact**: Ensures every bullet point includes metrics (%, $, time, users).
 - **Dual Language**: Seamlessly translate and optimize between French and English.
 - **Visual Edition**: Use the **Live Editor** to click any part of your PDF and edit the text directly.
+
+### 🔎 Job Search Integration
+Integrated job search powered by **Adzuna API** (1000 free calls/month):
+- Search 1000+ job offers across France
+- Filter by keywords, location, and remote options
+- Click any offer to auto-fill the job description field
+- Combine with **Remotive API** for remote-first positions
+- No scraping, no CAPTCHA, 100% legal APIs
+- Get free API key at https://developer.adzuna.com/
 
 ### 🎨 The PDF Engine (Python Worker)
 Most "beautiful" CVs (Canva/Design) fail ATS because they aren't readable by machines. Our Python backend uses **ReportLab** to draw exact coordinates:
@@ -125,16 +142,25 @@ Navigate to `http://localhost:3000` to start your audit.
 2. **Create a new Web Service** on [Render.com](https://render.com)
 3. **Connect your GitHub repository**
 4. **Configure Environment Variables**:
-   ```
+   ```bash
+   # Required: At least one AI provider
    GROQ_API_KEY=your_groq_key_here
    MISTRAL_API_KEY=your_mistral_key_here (optional)
    GOOGLE_API_KEY=your_google_key_here (optional)
+   
+   # Required: Job Search (Adzuna)
+   ADZUNA_APP_ID=your_adzuna_app_id
+   ADZUNA_APP_KEY=your_adzuna_app_key
+   
+   # Server
    PORT=10000
    ```
 5. **Deploy Settings**:
    - **Build Command**: (Handled by Dockerfile)
    - **Start Command**: (Handled by Dockerfile)
    - **Docker**: Enabled (uses `Dockerfile` in root)
+
+**Note**: Get free Adzuna credentials at https://developer.adzuna.com/ (1000 calls/month).
 
 ### Post-Deployment Notes
 - **Cold Start**: On Render's free tier, the service sleeps after 15 minutes of inactivity
@@ -159,10 +185,12 @@ RIIS operates as a dual-agent pipeline:
 
 ### Technical Stack
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
-- **Backend**: Python 3.11, FastAPI, ReportLab (PDF generation)
+- **Backend**: Python 3.11, ReportLab (PDF generation), python-docx (DOCX export)
 - **AI Engine**: Groq API / Mistral AI / Google AI (Gemini)
+- **Job Search**: Adzuna API + Remotive API
 - **PDF Processing**: pdfminer.six for text extraction
 - **Image Processing**: Pillow with face detection for photo optimization
+- **Diff Algorithm**: Myers' diff with word-level highlighting and Levenshtein similarity
 - **Deployment**: Docker-ready with Render.com support
 
 ### Performance Optimizations
@@ -218,17 +246,59 @@ Adjust text size from 0.5× to 2.0× while maintaining:
 ## 📋 Workflow Example
 
 1. **Upload CV**: Drop your existing PDF or Word document
-2. **Paste Job Offer**: Copy the job description you're targeting
-3. **AI Analysis**: Get instant ATS score and improvement suggestions
-4. **AI Rewrite** (Optional): Let AI optimize your content for the role
-5. **Choose Theme**: Select from 26 professional themes
-6. **Upload Photo** (Optional): Add profile photo for photo-enabled themes
-7. **Customize**: Adjust colors, fonts, and styling
-8. **Export**: Download ATS-optimized PDF ready for submission
+2. **Search Jobs** (Optional): Use integrated Adzuna search to find 1000+ relevant offers
+3. **Paste Job Offer**: Copy the job description (or click from search results)
+4. **AI Analysis**: Get instant ATS score and improvement suggestions
+5. **Compare Changes**: View before/after with Myers' diff algorithm (word-level highlighting)
+6. **AI Rewrite** (Optional): Let AI optimize your content for the role
+7. **Choose Theme**: Select from 32 professional themes
+8. **Upload Photo** (Optional): Add profile photo for photo-enabled themes
+9. **Customize**: Adjust colors, fonts, and styling
+10. **ATS Simulator**: Verify your PDF is ATS-compatible with extraction preview
+11. **Export**: Download ATS-optimized PDF or editable DOCX
 
 ---
 
 ## 🔧 Advanced Features
+
+### CareerOps Best Practices Integration
+RIIS integrates proven CV optimization techniques from [CareerOps](https://github.com/santifer/career-ops):
+- **Ethical Keyword Injection**: Reformulate existing experience with job vocabulary (never invent)
+- **Quantifiable Impact**: Every experience must include numbers (%, $, time, users)
+- **ATS Structure Detection**: Warns about multi-column layouts that fail ATS parsing
+- **Professional Summary Optimization**: Top 5 keywords in first 2 sentences
+- **Exit Narrative**: Automatic bridge for founders/entrepreneurs
+- **Date Format Enforcement**: Consistent MM/YYYY or MM/AAAA formatting
+
+See [CAREER_OPS_INTEGRATION.md](CAREER_OPS_INTEGRATION.md) for detailed documentation.
+
+### CV Comparison (Myers' Diff)
+- Side-by-side and unified diff views
+- Word-level highlighting of changes
+- Statistics: lines added, removed, modified
+- Color-coded visualization (green/red/orange)
+- Levenshtein similarity detection for modified lines
+
+### ATS Simulator
+- Extract text exactly as ATS systems see it
+- Calculate ATS compatibility score (0-100)
+- Detect missing email, phone, sections
+- Identify special characters issues
+- Preview extracted text with metrics
+
+### Job Search (Adzuna + Remotive)
+- Adzuna API integration (1000 free calls/month)
+- Search by keywords, location, remote filter
+- Click to auto-fill job description
+- Combine with Remotive for remote jobs
+- Sort by date, relevance, salary
+- Get free API key at https://developer.adzuna.com/
+
+### DOCX Export
+- Download editable Word format
+- Same content and colors as PDF
+- Simplified layout for editability
+- ATS-friendly single-column structure
 
 ### Live PDF Editor
 - Click any text element in the preview

@@ -85,7 +85,28 @@ async function callGoogle(
   timeoutMs: number = 30000
 ): Promise<{ data: any; model: string }> {
   let lastError: any;
-  const genAI = new GoogleGenerativeAI(apiKey);
+  // Sanitize the API key to prevent ByteString Fetch TypeError when users accidentally paste invisible characters or emojis
+  const cleanApiKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim();
+  const genAI = new GoogleGenerativeAI(cleanApiKey);
+  
+  // Remove ALL emojis and non-ASCII characters (Google API limitation)
+  const removeEmojis = (str: string) => {
+    return str
+      // Remove emojis and symbols
+      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+      .replace(/[\u{2600}-\u{27BF}]/gu, '')
+      .replace(/[\u{2300}-\u{23FF}]/gu, '')
+      .replace(/[\u{2B00}-\u{2BFF}]/gu, '')
+      .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
+      // Remove any remaining high unicode (>255)
+      .replace(/[^\x00-\xFF]/g, '')
+      // Clean up multiple spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+  
+  const cleanSystem = removeEmojis(system);
+  const cleanUserMsg = removeEmojis(userMsg);
   
   for (const modelName of GOOGLE_MODELS) {
     try {
@@ -98,7 +119,7 @@ async function callGoogle(
         }
       });
       
-      const prompt = `${system}\n\n${userMsg}`;
+      const prompt = `${cleanSystem}\n\n${cleanUserMsg}`;
       const result = await Promise.race([
         model.generateContent(prompt),
         new Promise<never>((_, reject) =>
@@ -310,10 +331,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing cv_text' }, { status: 400 });
     }
 
-    const apiKeyToUse = api_key || (provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.GOOGLE_API_KEY);
-    if (!apiKeyToUse) {
+    const apiKeyRaw = api_key || (provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.GOOGLE_API_KEY);
+    if (!apiKeyRaw) {
       return NextResponse.json({ error: `Missing ${provider === 'groq' ? 'Groq' : provider === 'mistral' ? 'Mistral' : 'Google'} API Key` }, { status: 400 });
     }
+    // Sanitize API key to prevent "ByteString" Fetch errors from accidentally copied emojis or zero-width spaces in the UI input
+    const apiKeyToUse = apiKeyRaw.replace(/[^\x20-\x7E]/g, '').trim();
 
     const cleanCvText = sanitizeCvText(cv_text);
 
@@ -322,13 +345,16 @@ export async function POST(req: Request) {
 Analyze the CV and job offer provided, then output a single JSON object.
 CRITICAL: Base ALL analysis strictly on the actual CV content. For present_keywords, only list keywords that genuinely appear in the CV. For missing_keywords, only list keywords from the job offer that are truly absent from the CV.
 
-PRO EXPERT RULES TO ENFORCE:
+PRO EXPERT RULES TO ENFORCE (CareerOps-inspired):
 1. APPRENTICESHIP/ALTERNANCE: If the candidate mentions "alternance" or "apprentissage", check if they specified their "rythme" (e.g., 1 week / 3 weeks). If missing, flag as a CON in Formations.
 2. IDENTITY: Check for full name, a professional title matching the target job, and a location (City + Zip).
 3. MOBILITY: Check for mentions of "Permis B" / Driver's license if relevant.
-4. QUANTIFIABLE IMPACT: Every experience MUST have at least one figure (number, %, $, €). If no numbers are found in an experience, flag lack of impact.
+4. QUANTIFIABLE IMPACT: Every experience MUST have at least one figure (number, %, $, €, time saved, users impacted). If no numbers are found in an experience, flag lack of impact. Examples: "Reduced costs by 30%", "Managed team of 5", "Processed 1000+ applications".
 5. ONLINE BRAND: Check for a LinkedIn profile link. If missing, flag as a critical CON in Identité.
 6. ORTHOGRAPHY: Specifically scan for typos, double spaces, and syntax errors. Provide a verdict.
+7. ATS STRUCTURE RISK: Detect multi-column layouts (Canva-style, sidebar designs). These ALWAYS fail ATS parsing. If detected, set ats_structure_risk to CRITICAL and warn explicitly.
+8. DATE FORMAT CONSISTENCY: Check if dates follow consistent format (MM/YYYY or MM/AAAA). Flag inconsistencies.
+9. KEYWORD DENSITY: Check if top 5 job offer keywords appear in the first 3 lines of the CV (summary/title). If not, flag as missing optimization.
 
 Required fields:
 - global_score: integer 0-100
@@ -386,38 +412,51 @@ ${(analysisData.critical_fixes || []).slice(0, 4).map((fix: string, i: number) =
 
 MISSING KEYWORDS TO INJECT: ${missingKws}
 
+KEYWORD INJECTION STRATEGY (CareerOps ethical approach):
+- ONLY reformulate existing experience with job offer vocabulary
+- NEVER invent skills or accomplishments
+- Examples of legitimate reformulation:
+  * JD: "RAG pipelines" + CV: "LLM workflows with retrieval" → "RAG pipeline design and LLM orchestration workflows"
+  * JD: "MLOps" + CV: "observability, evals" → "MLOps and observability: evals, error handling, cost monitoring"
+  * JD: "stakeholder management" + CV: "collaborated with team" → "stakeholder management across engineering and business"
+
 Rules:
 - name: full name only (no title, no pipe, no year).
 - title: rewrite to perfectly match the target role. In ${outputLang}. If candidate is seeking "alternance/apprentissage", ADD the rhythm (e.g., "1 semaine / 3 semaines") in title if present in CV.
-- email, phone, location, linkedin, github: copy VERBATIM from CV. null if absent.
-- summary: 3 powerful sentences in ${outputLang} positioning the candidate as the ideal hire. INJECT missing keywords naturally. If seeking alternance/apprentissage and rhythm is mentioned in CV, include it here.
+- email, phone, location, linkedin, github, portfolio: copy VERBATIM from CV. null if absent.
+- summary: 3 powerful sentences in ${outputLang} positioning the candidate as the ideal hire. INJECT top 5 missing keywords naturally in first 2 sentences. If candidate is a founder/entrepreneur, include exit narrative bridge (e.g., "Built and sold a business. Now applying systems thinking to [job domain]."). If seeking alternance/apprentissage and rhythm is mentioned in CV, include it here.
 - experiences: company and location VERBATIM. Translate role to ${outputLang}. STAY TRUTHFUL - do not invent accomplishments or exaggerate.
 - period: FORCED DATE FORMAT. If FR: 'MM/AAAA' (03/2021). If EN: 'MM/YYYY' (03/2021). For current roles, use 'Depuis MM/AAAA' (FR) or 'MM/YYYY - Present' (EN).
-- rewrite bullets aggressively in ${outputLang}. INJECT missing keywords naturally. DO NOT hallucinate - stay faithful to original content.
+- bullets: rewrite aggressively in ${outputLang}. INJECT missing keywords naturally. QUANTIFY IMPACT: every bullet should have at least one number (%, $, €, time, users, team size). If original bullet lacks numbers, try to infer reasonable metrics from context (e.g., "Led team" → "Led team of 3-5 engineers"). DO NOT hallucinate - stay faithful to original content.
 - education: degree/school VERBATIM. 
 - year: FORCED DATE FORMAT. If FR: 'MM/AAAA' (or just AAAA if month absent). If EN: 'MM/YYYY' (or just YYYY).
 - detail = specialization if present, else null.
-- skills: EXACTLY {"categories": [{"name": "...", "items": ["..."]}]}. Max 3 categories. Category names in ${outputLang}. INJECT all missing keywords.
+- skills: EXACTLY {"categories": [{"name": "...", "items": ["..."]}]}. Max 3 categories. Category names in ${outputLang}. INJECT all missing keywords in relevant categories.
 - languages: EXACTLY [{"lang": "...", "level": "...", "level_num": 1-5}]. ONLY languages from CV. level label in ${outputLang}.
 - certifications: array of strings. [] if none. ADD "Permis B" if driving relevant and missing.
 - interests: array of strings (hobbies, etc.). [] if none.
--formatting: STRICTLY NO MARKDOWN. Do not use bold (**) or any other markdown characters in the values.
+- formatting: STRICTLY NO MARKDOWN. Do not use bold (**) or any other markdown characters in the values.
 
 
 CRITICAL: experiences must be objects with bullets array, NOT strings. STAY TRUTHFUL - optimize wording but do not fabricate content.
-Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, summary, experiences, education, skills, languages, certifications, interests.`
+Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, portfolio, website, summary, experiences, education, skills, languages, certifications, interests.`
       : `You are an expert CV rewriter and career coach.
 Goal: rewrite the candidate's CV to maximize match with the target job, while staying truthful.
 WRITE EVERYTHING IN ${outputLang.toUpperCase()} — including role titles, bullets, summary, skill category names, and education details. Translate any French content to ${outputLang}.
 
+KEYWORD INJECTION STRATEGY (CareerOps ethical approach):
+- ONLY reformulate existing experience with job offer vocabulary
+- NEVER invent skills or accomplishments
+- Examples: "LLM workflows" → "RAG pipeline design", "team collaboration" → "stakeholder management"
+
 Rules:
 - name: full name only (no title, no pipe, no year).
 - title: optimize to match the target role in ${outputLang}. Short, no sentences.
-- email, phone, location, linkedin, github: copy VERBATIM from CV. null if absent.
-- summary: 3 punchy sentences in ${outputLang}. 
+- email, phone, location, linkedin, github, portfolio, website: copy VERBATIM from CV. null if absent.
+- summary: 3 punchy sentences in ${outputLang}. If candidate is a founder/entrepreneur, include exit narrative (e.g., "Built and sold a business. Now applying systems thinking to [domain].").
 - experiences: company and location VERBATIM. Translate role to ${outputLang}. 
 - period: FORCED DATE FORMAT. If FR: 'MM/AAAA' (03/2021). If EN: 'MM/YYYY' (03/2021). For current roles, use 'Depuis MM/AAAA' (FR) or 'MM/YYYY - Present' (EN).
-- rewrite bullets in ${outputLang}, stronger.
+- bullets: rewrite in ${outputLang}, stronger. QUANTIFY IMPACT: add numbers (%, $, time, users) when possible without inventing.
 - education: degree/school VERBATIM. 
 - year: FORCED DATE FORMAT. If FR: 'MM/AAAA' (or just AAAA if month absent). If EN: 'MM/YYYY' (or just YYYY).
 - detail = specialization if present, else null.
@@ -428,7 +467,7 @@ Rules:
 - formatting: STRICTLY NO MARKDOWN. Do not use bold (**) or any other markdown characters in the values.
 
 CRITICAL: experiences must be objects with bullets array, NOT strings.
-Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, summary, experiences, education, skills, languages, certifications, interests.`;
+Output a single raw JSON with ONLY: name, title, email, phone, location, linkedin, github, portfolio, website, summary, experiences, education, skills, languages, certifications, interests.`;
 
     const prompt2 = `CV HEADER (first lines):
 ${cleanCvText.split('\n').filter(l => l.trim()).slice(0, 6).join('\n')}
@@ -539,6 +578,7 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
       location:       typeof llmFields.location === 'string' ? llmFields.location : null,
       linkedin:       typeof llmFields.linkedin === 'string' ? llmFields.linkedin : null,
       github:         typeof llmFields.github   === 'string' ? llmFields.github   : null,
+      portfolio:      typeof llmFields.portfolio === 'string' ? llmFields.portfolio : null,
       summary:        String(llmFields.summary || llmFields.résumé || llmFields.profil || '').replace(/\*\*/g, '').replace(/\*/g, ''),
       experiences,
       education,
