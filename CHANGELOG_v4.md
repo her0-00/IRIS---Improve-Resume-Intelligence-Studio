@@ -1,4 +1,4 @@
-# 🎯 RIIS v4.0 - Changelog & Features
+# 🎯 IRIS v4.0 - Changelog & Features
 
 ## ✨ Nouvelles Fonctionnalités
 
@@ -309,8 +309,8 @@ python scraper_cli.py "développeur" "France"
 
 ### Setup Dev
 ```bash
-git clone https://github.com/your-repo/RIIS.git
-cd RIIS
+git clone https://github.com/your-repo/IRIS.git
+cd IRIS
 
 # Install Python deps
 pip install -r requirements.txt
@@ -336,7 +336,7 @@ MIT
 
 ---
 
-✅ **RIIS v4.0 - Production Ready** 🚀
+✅ **IRIS v4.0 - Production Ready** 🚀
 
 
 ---

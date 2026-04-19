@@ -1,12 +1,12 @@
-# ⬡ RIIS — Resume Improve Intelligence Studio
+# ⬡ IRIS — Improve Resume Intelligence Studio
 
 **Stop sending your CV into the "Resume Black Hole".** 
 
-75% of applications are rejected by automated bots before a human ever sees them. RIIS is a high-performance utility designed to audit, rewrite, and export your CV so it bypasses tracking systems (ATS) and lands directly on a recruiter's desk.
+75% of applications are rejected by automated bots before a human ever sees them. IRIS is a high-performance utility designed to audit, rewrite, and export your CV so it bypasses tracking systems (ATS) and lands directly on a recruiter's desk.
 
-🌐 **Live Demo**: [https://riis.onrender.com/](https://riis.onrender.com/)
+🌐 **Live Demo**: [https://iris.onrender.com/](https://iris.onrender.com/)
 
-![RIIS Home Interface](home.png)
+![IRIS Home Interface](home.png)
 
 ---
 
@@ -31,7 +31,7 @@
 ## 🛠️ Core Utility Features
 
 ### 🔍 Deep Audit & Scoring
-Don't guess your chances. Get a precise **Score (0-100)**, a **Pass Probability**, and a **Market Verdict**. RIIS scans for:
+Don't guess your chances. Get a precise **Score (0-100)**, a **Pass Probability**, and a **Market Verdict**. IRIS scans for:
 - **Missing Keywords**: Specific technical and soft skills the ATS is looking for.
 - **Content Density**: Evaluates if your experience matches the seniority level.
 - **Recruiter Psychology**: Explains the "Shadow Profile" you present to hiring managers.
@@ -39,7 +39,7 @@ Don't guess your chances. Get a precise **Score (0-100)**, a **Pass Probability*
 - **ATS Simulator**: Extract text exactly as ATS systems see it with compatibility scoring.
 
 ### 🧠 Intelligent AI Rewriting
-Powered by **3 AI Providers** (Groq, Mistral AI, Google AI), RIIS doesn't just "fix" your CV; it transforms it:
+Powered by **3 AI Providers** (Groq, Mistral AI, Google AI), IRIS doesn't just "fix" your CV; it transforms it:
 - **Boost Mode**: Enriches your experience with hidden accomplishments relevant to the job.
 - **Ethical Keyword Injection**: Reformulates existing experience with job offer vocabulary without inventing skills (inspired by [CareerOps](https://github.com/santifer/career-ops)).
 - **Quantifiable Impact**: Ensures every bullet point includes metrics (%, $, time, users).
@@ -132,7 +132,7 @@ Navigate to `http://localhost:3000` to start your audit.
 
 ## 🚀 Deployment (Render.com)
 
-🌐 **Live Demo**: [https://riis.onrender.com/](https://riis.onrender.com/)
+🌐 **Live Demo**: [https://IRIS.onrender.com/](https://IRIS.onrender.com/)
 
 ### One-Click Deploy
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com)
@@ -165,7 +165,7 @@ Navigate to `http://localhost:3000` to start your audit.
 ### Post-Deployment Notes
 - **Cold Start**: On Render's free tier, the service sleeps after 15 minutes of inactivity
 - **First Load**: May take 30-60 seconds to wake up the service
-- **Dynamic Rendering**: RIIS uses `force-dynamic` to prevent static caching issues
+- **Dynamic Rendering**: IRIS uses `force-dynamic` to prevent static caching issues
 - **No Reload Needed**: Once the service is awake, all API calls work immediately
 
 ### Troubleshooting Render Deployment
@@ -177,7 +177,7 @@ Navigate to `http://localhost:3000` to start your audit.
 ---
 
 ## 🏗️ Architecture: How the Utility Works
-RIIS operates as a dual-agent pipeline:
+IRIS operates as a dual-agent pipeline:
 1. **The Auditor**: Extracts text (pdfminer) and performs a competitive analysis.
 2. **The Architect**: Restructures the data into a normalized JSON schema.
 3. **The Worker**: A dedicated Python process renders the JSON into a high-fidelity PDF.
@@ -262,7 +262,7 @@ Adjust text size from 0.5× to 2.0× while maintaining:
 ## 🔧 Advanced Features
 
 ### CareerOps Best Practices Integration
-RIIS integrates proven CV optimization techniques from [CareerOps](https://github.com/santifer/career-ops):
+IRIS integrates proven CV optimization techniques from [CareerOps](https://github.com/santifer/career-ops):
 - **Ethical Keyword Injection**: Reformulate existing experience with job vocabulary (never invent)
 - **Quantifiable Impact**: Every experience must include numbers (%, $, time, users)
 - **ATS Structure Detection**: Warns about multi-column layouts that fail ATS parsing

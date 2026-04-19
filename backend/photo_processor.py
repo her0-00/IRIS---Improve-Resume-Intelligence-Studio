@@ -1,5 +1,5 @@
 """
-RIIS — Photo Profile Processor
+IRIS — Photo Profile Processor
 Intelligent face detection, cropping, and optimization for CV photos
 """
 

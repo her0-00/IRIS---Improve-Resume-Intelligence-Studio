@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RIIS - Resume Improve Intelligence Studio",
+  title: "IRIS - IMPROVE RESUME  INTELLIGENCE STUDIO",
   description: "AI-powered resume optimization with 3 AI providers. Analyze, rewrite, and export ATS-optimized CVs.",
 };
 

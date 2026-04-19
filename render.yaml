@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: riis
+    name: IRIS
     runtime: docker
     region: frankfurt
     plan: free

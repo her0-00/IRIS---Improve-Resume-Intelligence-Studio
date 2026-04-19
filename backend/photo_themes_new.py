@@ -1,5 +1,5 @@
 """
-4 nouveaux thèmes photo ORIGINAUX pour RIIS
+4 nouveaux thèmes photo ORIGINAUX pour IRIS
 Chaque thème a un layout unique et différent
 
 IMPORTANT: Ces thèmes ont été intégrés directement dans backend/pdf_cv.py.

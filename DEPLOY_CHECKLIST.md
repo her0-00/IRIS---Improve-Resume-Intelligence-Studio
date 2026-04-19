@@ -1,4 +1,4 @@
-# ✅ RIIS - Checklist de Déploiement Render
+# ✅ IRIS - Checklist de Déploiement Render
 
 ## 📋 Pré-déploiement
 

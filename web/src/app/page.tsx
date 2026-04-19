@@ -559,7 +559,7 @@ export default function Home() {
         <div className="brand">
           <div className="brand-hex">⬡</div>
           <div className="brand-text">
-            <div className="brand-name">RIIS</div>
+            <div className="brand-name">IRIS</div>
             <div className="brand-tag">Resume Intelligence v4.1</div>
           </div>
         </div>
@@ -1300,7 +1300,7 @@ export default function Home() {
             {/* TAB: TIPS */}
             {activeTab === 'tips' && (
               <div className="card" style={{ padding: '0' }}>
-                <div className="card-hd" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>🚀 RIIS Pro Tips</div>
+                <div className="card-hd" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)' }}>🚀 IRIS Pro Tips</div>
                 <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
 
                   <div className="ins cyan" style={{ margin: 0 }}>
@@ -2434,7 +2434,7 @@ export default function Home() {
             }}>
               <ShieldCheck size={28} />
               <div style={{ textAlign: 'left' }}>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, letterSpacing: '0.15em', textTransform: 'uppercase' }}>RIIS Privacy Shield</h2>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 900, margin: 0, letterSpacing: '0.15em', textTransform: 'uppercase' }}>IRIS Privacy Shield</h2>
                 <p style={{ fontSize: '0.65rem', opacity: 0.6, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Conformité RGPD & Protection des Données (v4.1)</p>
               </div>
             </div>
@@ -2453,7 +2453,7 @@ export default function Home() {
                   <h3 style={{ fontSize: '0.85rem', fontWeight: 700, margin: 0 }}>Traitement Ephémère</h3>
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text2)', lineHeight: '1.6' }}>
-                  <strong>Engagement 0-Day Retention :</strong> RIIS opère exclusivement en mémoire vive (RAM).
+                  <strong>Engagement 0-Day Retention :</strong> IRIS opère exclusivement en mémoire vive (RAM).
                   Vos CV, photos et offres d'emploi ne sont jamais enregistrés dans une base de données persistante.
                   Une fois votre session fermée, les données sont atomiquement purgées.
                 </p>
@@ -2507,7 +2507,7 @@ export default function Home() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={12} style={{ color: 'var(--green)' }} /> ISO 27001 Ready</span>
               </div>
               <div style={{ fontSize: '0.6rem', opacity: 0.4, color: 'var(--text3)' }}>
-                RIIS © 2026 — Resume Improve Intelligence Studio — Hébergement Sécurisé via Render
+                IRIS © 2026 — IMPROVE RESUME  INTELLIGENCE STUDIO — Hébergement Sécurisé via Render
               </div>
             </div>
 

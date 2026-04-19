@@ -2,7 +2,7 @@
 
 ## Vue d'ensemble
 
-RIIS intègre maintenant **10 nouveaux thèmes de CV avec photo de profil**, utilisant une **détection intelligente de visage** pour un centrage automatique parfait.
+IRIS intègre maintenant **10 nouveaux thèmes de CV avec photo de profil**, utilisant une **détection intelligente de visage** pour un centrage automatique parfait.
 
 ---
 
@@ -253,4 +253,4 @@ Pour toute question sur la fonctionnalité photo :
 
 ---
 
-**Développé avec ❤️ par RIIS Team**
+**Développé avec ❤️ par IRIS Team**

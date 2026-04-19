@@ -1,4 +1,4 @@
-# 🚀 Guide de Déploiement Render - RIIS v4.0
+# 🚀 Guide de Déploiement Render - IRIS v4.0
 
 ## ✅ Nouvelles Fonctionnalités
 
@@ -54,7 +54,7 @@ git push origin main
 4. Render détecte automatiquement le `Dockerfile`
 
 ### Étape 3: Configuration
-- **Name**: `RIIS`
+- **Name**: `IRIS`
 - **Region**: `Frankfurt` (ou autre)
 - **Branch**: `main`
 - **Runtime**: Docker
@@ -198,7 +198,7 @@ render logs | grep "playwright"
 - [ ] `web/src/app/api/search_jobs/route.ts` appelle le scraper
 - [ ] `web/src/app/api/extract_keywords/route.ts` existe
 - [ ] Tests locaux passent (`npm run dev`)
-- [ ] Build Docker local réussit (`docker build -t RIIS .`)
+- [ ] Build Docker local réussit (`docker build -t IRIS .`)
 - [ ] Variables d'env configurées sur Render
 - [ ] Git push sur `main`
 
@@ -208,7 +208,7 @@ render logs | grep "playwright"
 
 ### 1. **Tester l'URL publique**
 ```
-https://RIIS.onrender.com
+https://IRIS.onrender.com
 ```
 
 ### 2. **Partager avec utilisateurs**

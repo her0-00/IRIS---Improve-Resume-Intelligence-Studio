@@ -1,5 +1,5 @@
 """
-RIIS — Système de logs centralisé
+IRIS — Système de logs centralisé
 """
 
 import logging
@@ -10,7 +10,7 @@ from datetime import datetime
 LOG_DIR = Path(__file__).parent.parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-_log_file = LOG_DIR / f"RIIS_{datetime.now().strftime('%Y%m%d')}.log"
+_log_file = LOG_DIR / f"IRIS_{datetime.now().strftime('%Y%m%d')}.log"
 
 logging.basicConfig(
     level=logging.INFO,

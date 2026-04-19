@@ -1,5 +1,5 @@
 """
-RIIS — Générateur DOCX ATS-Optimized
+IRIS — Générateur DOCX ATS-Optimized
 Export CV en format Word éditable avec style IDENTIQUE au PDF (pixel-perfect)
 """
 

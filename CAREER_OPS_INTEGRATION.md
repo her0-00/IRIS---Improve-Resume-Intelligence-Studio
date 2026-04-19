@@ -1,6 +1,6 @@
 # 🎯 CareerOps Best Practices Integration
 
-Ce document explique comment RIIS intègre les meilleures pratiques de [CareerOps](https://github.com/santifer/career-ops) pour améliorer la qualité des CVs générés, **sans alourdir le projet**.
+Ce document explique comment IRIS intègre les meilleures pratiques de [CareerOps](https://github.com/santifer/career-ops) pour améliorer la qualité des CVs générés, **sans alourdir le projet**.
 
 ---
 
@@ -22,7 +22,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 → "stakeholder management across engineering, operations, and business"
 ```
 
-**Implémentation RIIS**: Intégré dans le prompt Agent2 (Boost Mode et Standard Mode).
+**Implémentation IRIS**: Intégré dans le prompt Agent2 (Boost Mode et Standard Mode).
 
 ---
 
@@ -37,7 +37,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 - ❌ "Led development team"
 - ✅ "Led team of 5 engineers delivering 3 major features in 6 months"
 
-**Implémentation RIIS**:
+**Implémentation IRIS**:
 - Agent1 (Audit): Détecte les expériences sans chiffres et les flag comme CON
 - Agent2 (Rewrite): Ajoute des métriques quantifiables dans chaque bullet (sans inventer)
 
@@ -47,10 +47,10 @@ JD: "stakeholder management" + CV: "collaborated with team"
 
 **Principe CareerOps**: Les CVs multi-colonnes (Canva-style, sidebar) échouent TOUJOURS au parsing ATS.
 
-**Implémentation RIIS**:
+**Implémentation IRIS**:
 - Agent1 détecte les layouts multi-colonnes
 - Si détecté: `ats_structure_risk: "CRITICAL"` + warning explicite
-- Recommandation: Utiliser les thèmes ATS-optimized de RIIS (6 thèmes dédiés)
+- Recommandation: Utiliser les thèmes ATS-optimized de IRIS (6 thèmes dédiés)
 
 ---
 
@@ -63,7 +63,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 "Built and sold a business. Now applying systems thinking to [job domain]."
 ```
 
-**Implémentation RIIS**:
+**Implémentation IRIS**:
 - Agent2 (Boost Mode): Injecte top 5 keywords dans les 2 premières phrases du summary
 - Détecte si candidat est founder → ajoute exit narrative automatiquement
 
@@ -77,7 +77,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 - FR: `MM/AAAA` (03/2021) ou `Depuis MM/AAAA`
 - EN: `MM/YYYY` (03/2021) ou `MM/YYYY - Present`
 
-**Implémentation RIIS**:
+**Implémentation IRIS**:
 - Agent1: Vérifie la cohérence des formats de dates
 - Agent2: Force le format correct selon la langue de sortie
 
@@ -87,7 +87,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 
 **Principe CareerOps**: LinkedIn profile link est CRITIQUE pour la crédibilité.
 
-**Implémentation RIIS**:
+**Implémentation IRIS**:
 - Agent1: Flag l'absence de LinkedIn comme CON critique dans "Identité"
 - Recommandation: Ajouter le lien dans le CV avant génération PDF
 
@@ -97,7 +97,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 
 **Principe CareerOps**: Si candidat cherche alternance, spécifier le rythme (ex: "1 semaine / 3 semaines").
 
-**Implémentation RIIS**:
+**Implémentation IRIS**:
 - Agent1: Détecte mention d'alternance sans rythme → flag comme CON
 - Agent2: Ajoute le rythme dans le title si présent dans le CV original
 
@@ -105,7 +105,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 
 ## 🔄 Workflow Comparaison
 
-| Étape | CareerOps | RIIS |
+| Étape | CareerOps | IRIS |
 |-------|-----------|------|
 | **Input** | cv.md + Job URL | PDF/DOCX + Job Offer text |
 | **Audit** | A-G Evaluation (7 blocs) | Agent1 (Score 0-100 + detailed report) |
@@ -123,7 +123,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 - **Deployment**: Local (Node.js + Go)
 - **Use Case**: Job search pipeline (scan → eval → apply)
 
-### RIIS
+### IRIS
 - **Focus**: Optimiser 1 CV pour passer l'ATS avec design premium
 - **Interface**: Web app (Next.js)
 - **Deployment**: Render.com (Docker, gratuit)
@@ -136,20 +136,20 @@ JD: "stakeholder management" + CV: "collaborated with team"
 **Workflow idéal**:
 1. **CareerOps** scanne 100 offres → évalue → score A-F
 2. Garde les offres >= 4.0 (top 10-15%)
-3. Pour chaque top offer → **RIIS** génère un PDF premium avec thème personnalisé
+3. Pour chaque top offer → **IRIS** génère un PDF premium avec thème personnalisé
 4. CareerOps track l'application dans le dashboard TUI
 
 ---
 
 ## 📊 Impact des Améliorations
 
-### Avant (RIIS v1.0)
+### Avant (IRIS v1.0)
 - Keyword injection basique
 - Pas de vérification quantifiable impact
 - Pas de détection multi-colonnes
 - Summary générique
 
-### Après (RIIS v1.1 + CareerOps practices)
+### Après (IRIS v1.1 + CareerOps practices)
 - ✅ Keyword injection éthique avec exemples
 - ✅ Vérification impact quantifié (%, $, temps)
 - ✅ Détection CRITICAL des layouts multi-colonnes
@@ -162,14 +162,14 @@ JD: "stakeholder management" + CV: "collaborated with team"
 
 ## 🚀 Résultat
 
-**RIIS conserve**:
+**IRIS conserve**:
 - Légèreté (pas de base de données)
 - Déploiement gratuit sur Render
 - 32 thèmes premium
 - Photo integration (10 thèmes)
 - Customization studio
 
-**RIIS gagne**:
+**IRIS gagne**:
 - Qualité de reformulation CareerOps
 - Détection ATS structure risk
 - Quantifiable impact enforcement
@@ -182,7 +182,7 @@ JD: "stakeholder management" + CV: "collaborated with team"
 
 - **CareerOps**: https://github.com/santifer/career-ops
 - **CareerOps Case Study**: https://santifer.io/career-ops-system
-- **RIIS Live Demo**: https://riis.onrender.com/
+- **IRIS Live Demo**: https://IRIS.onrender.com/
 
 ---
 
@@ -194,4 +194,4 @@ Merci à **Santiago Fernández** ([@santifer](https://github.com/santifer)) pour
 
 ## License
 
-MIT (comme CareerOps et RIIS)
+MIT (comme CareerOps et IRIS)
