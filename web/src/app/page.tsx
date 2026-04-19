@@ -1248,7 +1248,72 @@ export default function Home() {
             {/* TAB: EDIT CONTENT */}
             {activeTab === 'edit' && (
               <div>
-                <div className="card-hd">✏️ Editeur Haute Résolution (JSON)</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div className="card-hd" style={{ margin: 0 }}>✏️ Editeur Haute Résolution (JSON)</div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(editedCvDataJSON);
+                        alert('✓ JSON copié dans le presse-papier !');
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text2)',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--gold)';
+                        e.currentTarget.style.color = 'var(--gold)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border)';
+                        e.currentTarget.style.color = 'var(--text2)';
+                      }}
+                    >
+                      <FileText size={14} /> Copier JSON
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('⚠️ Êtes-vous sûr de vouloir vider le JSON ?')) {
+                          setEditedCvDataJSON('');
+                        }
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text2)',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--red)';
+                        e.currentTarget.style.color = 'var(--red)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'var(--border)';
+                        e.currentTarget.style.color = 'var(--text2)';
+                      }}
+                    >
+                      <Trash2 size={14} /> Vider
+                    </button>
+                  </div>
+                </div>
                 <p style={{ color: 'var(--text2)', marginBottom: '1rem', fontSize: '0.85rem' }}>
                   Vous pouvez modifier librement le texte de votre CV ici avant de générer le PDF.
                   Assurez-vous de conserver un format JSON valide !
