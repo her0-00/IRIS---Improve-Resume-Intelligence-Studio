@@ -860,7 +860,7 @@ class _ClassicDark:
                 if my < 110 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10.5)
                 c.setFillColor(cls.TEXT_DARK)
-                c.drawString(MX, my, exp.get("company", ""))
+                c.drawString(MX, my, exp.get("role", ""))
                 c.setFont(_f("Poppins", FF), 8.5)
                 c.setFillColor(cls.TEXT_LIGHT)
                 c.drawRightString(MX + MW, my, exp.get("period", ""))
@@ -3424,15 +3424,15 @@ class _ImpactBoldATS:
                 if my < 100 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10)
                 c.setFillColor(cls.TEXT_DARK)
-                c.drawString(MX, my, exp.get("company", "").upper())
+                c.drawString(MX, my, exp.get("role", "").upper())
                 c.drawRightString(MX + MW, my, exp.get("period", ""))
                 my -= 13 * _fscale
                 
-                role_text = exp.get("role", "")
-                if exp.get("location"): role_text += "  /  " + exp["location"]
+                company_text = exp.get("company", "")
+                if exp.get("location"): company_text += "  /  " + exp["location"]
                 c.setFont(_f("Poppins-Medium", FF), 9)
                 c.setFillColor(cls.TEXT_MED)
-                c.drawString(MX, my, role_text.upper())
+                c.drawString(MX, my, company_text.upper())
                 my -= 14 * _fscale
                 
                 for bullet in exp.get("bullets", []):
@@ -3621,12 +3621,12 @@ class _EliteATS:
                 if my < 100 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10)
                 c.setFillColor(cls.TEXT_DARK)
-                c.drawString(MX, my, exp.get("company", ""))
+                c.drawString(MX, my, exp.get("role", ""))
                 c.drawRightString(MX + MW, my, exp.get("period", ""))
                 my -= 12 * _fscale
                 c.setFont(_f("Poppins-Medium", FF), 9)
                 c.setFillColor(cls.ACCENT)
-                c.drawString(MX, my, exp.get("role", "") + (f" - {exp['location']}" if exp.get('location') else ""))
+                c.drawString(MX, my, exp.get("company", "") + (f" - {exp['location']}" if exp.get('location') else ""))
                 my -= 14 * _fscale
                 for bullet in exp.get("bullets", []):
                     if my < 40 * _fscale: my = new_page()
@@ -3862,11 +3862,11 @@ class _StandardCorporate:
             for exp in cv_data["experiences"]:
                 if my < 100 * _fscale: my = new_page()
                 c.setFont(_f("Poppins-Bold", FF), 10)
-                c.drawString(MX, my, exp.get("company", "").upper())
+                c.drawString(MX, my, exp.get("role", "").upper())
                 c.drawRightString(MX + MW, my, exp.get("period", ""))
                 my -= 12 * _fscale
                 c.setFont(_f("Poppins-Italic", FF), 9.5)
-                c.drawString(MX, my, exp.get("role", "") + (f", {exp['location']}" if exp.get('location') else ""))
+                c.drawString(MX, my, exp.get("company", "") + (f", {exp['location']}" if exp.get('location') else ""))
                 my -= 14 * _fscale
                 for bullet in exp.get("bullets", []):
                     if my < 40 * _fscale: my = new_page()
