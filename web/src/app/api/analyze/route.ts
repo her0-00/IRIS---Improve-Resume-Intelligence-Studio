@@ -464,9 +464,12 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
     }
     // Ensure each category has name:string and items:string[]
     skills.categories = (skills.categories as any[]).map((cat: any) => ({
-      name: typeof cat.name === 'string' ? cat.name : (cat.category ?? ''),
-      items: Array.isArray(cat.items) ? cat.items.filter((i: any) => typeof i === 'string')
-        : Array.isArray(cat.skills) ? cat.skills.filter((i: any) => typeof i === 'string') : []
+      name: typeof cat.name === 'string' ? cat.name.replace(/\*\*/g, '').replace(/\*/g, '') : (cat.category ?? ''),
+      items: Array.isArray(cat.items) 
+        ? cat.items.filter((i: any) => typeof i === 'string').map((i: string) => i.replace(/\*\*/g, '').replace(/\*/g, ''))
+        : Array.isArray(cat.skills) 
+        ? cat.skills.filter((i: any) => typeof i === 'string').map((i: string) => i.replace(/\*\*/g, '').replace(/\*/g, '')) 
+        : []
     }));
 
     // Normalize languages: "French" -> {lang,level,level_num}
@@ -482,8 +485,12 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
     languages = languages.map((l: any) => {
       const num = typeof l.level_num === 'number' ? l.level_num : 3;
       const isEn = outputLang === 'English';
-      const level = (typeof l.level === 'string' && l.level.trim()) ? l.level : levelLabel(num, isEn);
-      return { lang: typeof l.lang === 'string' ? l.lang : '', level, level_num: num };
+      const level = (typeof l.level === 'string' && l.level.trim()) ? l.level.replace(/\*\*/g, '').replace(/\*/g, '') : levelLabel(num, isEn);
+      return { 
+        lang: typeof l.lang === 'string' ? l.lang.replace(/\*\*/g, '').replace(/\*/g, '') : '', 
+        level, 
+        level_num: num 
+      };
     });
 
     // Normalize experiences: strings → {role, company, period, location, bullets}
@@ -500,7 +507,7 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
         : [];
       
       return {
-        role: typeof e.role === 'string' ? e.role : '',
+        role: typeof e.role === 'string' ? e.role.replace(/\*\*/g, '').replace(/\*/g, '') : '',
         company: typeof e.company === 'string' ? e.company : '',
         period: typeof e.period === 'string' ? e.period : (e.period ?? ''),
         location: typeof e.location === 'string' ? e.location : '',
@@ -515,10 +522,10 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
         return { degree: e, school: '', year: '', detail: null };
       }
       return {
-        degree: typeof e.degree === 'string' ? e.degree : '',
+        degree: typeof e.degree === 'string' ? e.degree.replace(/\*\*/g, '').replace(/\*/g, '') : '',
         school: typeof e.school === 'string' ? e.school : '',
         year: typeof e.year === 'string' ? e.year : (e.year ?? ''),
-        detail: typeof e.detail === 'string' ? e.detail : null,
+        detail: typeof e.detail === 'string' ? e.detail.replace(/\*\*/g, '').replace(/\*/g, '') : null,
       };
     });
 
