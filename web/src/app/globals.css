@@ -23,6 +23,7 @@
   --r-sm: 6px;
   --r-md: 12px;
   --r-lg: 20px;
+  --map-height: 520px;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1671,4 +1672,87 @@ textarea.input-field.mono {
 .leaflet-popup-tip {
   background: var(--card) !important;
   border: 1px solid var(--border) !important;
+}
+
+.leaflet-tooltip {
+  background: var(--card) !important;
+  border: 1px solid var(--gold) !important;
+  color: var(--text) !important;
+  border-radius: 8px !important;
+  padding: 10px !important;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.5) !important;
+  font-family: inherit !important;
+  font-size: 0.8rem !important;
+}
+
+.leaflet-tooltip-top:before {
+  border-top-color: var(--gold) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE OVERRIDES
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+  .main-content {
+    padding: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --map-height: 350px;
+  }
+
+  .page-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 1rem;
+  }
+
+  .main-content {
+    padding: 1.5rem;
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .sgrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .cv-preview {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --map-height: 300px;
+  }
+  
+  .sgrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tabs {
+    gap: 5px;
+  }
+  
+  .tab {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.55rem;
+  }
 }

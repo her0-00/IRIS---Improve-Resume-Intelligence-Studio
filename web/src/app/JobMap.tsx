@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Globe, Maximize2 } from 'lucide-react';
@@ -74,6 +74,13 @@ export default function JobMap({ jobs }: { jobs: Job[] }) {
         });
     }, [jobs]);
 
+    // Use a fixed initial center/zoom for MapContainer to ensure it never re-renders internally
+    // We define this at the top to respect the Rules of Hooks
+    const [initialConfig] = useState({
+        center: [46.603354, 1.888334] as [number, number],
+        zoom: 6
+    });
+
     if (!mounted) return null;
 
     if (geoJobs.length === 0) {
@@ -96,12 +103,8 @@ export default function JobMap({ jobs }: { jobs: Job[] }) {
         );
     }
 
-    const center: [number, number] = geoJobs.length > 0 
-        ? [geoJobs[0].latitude!, geoJobs[0].longitude!] 
-        : [46.603354, 1.888334];
-
     return (
-        <div style={{ height: '520px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: '#08090E', position: 'relative' }}>
+        <div style={{ height: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', background: '#08090E', position: 'relative' }}>
             {/* RESET VIEW BUTTON */}
             <button 
                 onClick={() => setResetTrigger(prev => prev + 1)}
@@ -130,11 +133,12 @@ export default function JobMap({ jobs }: { jobs: Job[] }) {
             </button>
 
             <MapContainer 
-                center={center} 
-                zoom={6} 
+                center={initialConfig.center} 
+                zoom={initialConfig.zoom} 
                 zoomControl={false}
                 scrollWheelZoom={true}
                 style={{ height: '100%', width: '100%' }}
+                key="stable-ats-map"
             >
                 <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -171,37 +175,20 @@ export default function JobMap({ jobs }: { jobs: Job[] }) {
                             weight: 1
                         }}
                     >
-                        <Popup>
-                            <div style={{ color: 'var(--text)', minWidth: '160px', fontFamily: 'Inter, sans-serif' }}>
-                                <strong style={{ color: '#B45309', display: 'block', fontSize: '0.85rem' }}>{job.title}</strong>
-                                <div style={{ fontSize: '0.75rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Tooltip sticky direction="top" opacity={1}>
+                            <div style={{ color: 'var(--text)', minWidth: '180px', fontFamily: 'Inter, sans-serif' }}>
+                                <strong style={{ color: '#B45309', display: 'block', fontSize: '0.85rem', marginBottom: '2px' }}>{job.title}</strong>
+                                <div style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>🏢 {job.company?.display_name || 'Confidentiel'}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#10B981' }}>🎯 Match: {job._matchScore}%</div>
                                     {job.created && (
-                                        <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>📅 {new Date(job.created).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
+                                        <span style={{ fontSize: '0.65rem', opacity: 0.6, fontStyle: 'italic' }}>📅 {new Date(job.created).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>
                                     )}
                                 </div>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#10B981' }}>🎯 Score Match: {job._matchScore}%</div>
-                                <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '8px 0' }} />
-                                <a 
-                                  href={job.redirect_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  style={{ 
-                                    display: 'block', 
-                                    textAlign: 'center',
-                                    background: '#B45309', 
-                                    color: '#fff', 
-                                    textDecoration: 'none', 
-                                    padding: '6px', 
-                                    borderRadius: '6px',
-                                    fontSize: '0.7rem',
-                                    fontWeight: 700
-                                  }}
-                                >
-                                    OUVRIR L'OFFRE &rarr;
-                                </a>
                             </div>
-                        </Popup>
+                        </Tooltip>
                     </CircleMarker>
                 ))}
             </MapContainer>

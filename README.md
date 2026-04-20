@@ -18,7 +18,7 @@
 | **Psychological Insights** | AI analyzes why a human recruiter might ignore or underpay you. |
 | **Market Value Benchmarking** | Estimates your salary potential and identifies the "Salary Gap". |
 | **Semantic Keyword Injection** | Automatically matches your skills to the specific job offer context using ethical reformulation (CareerOps-inspired). |
-| **Job Search Integration** | Search 1000+ job offers via Adzuna API (requires free API key). |
+| **Job Search Integration** | Search 1000+ job offers via Adzuna API with interactive GIS map visualization. |
 | **CV Comparison** | Myers' diff algorithm with word-level highlighting to visualize AI improvements. |
 | **ATS Simulator** | Extract and score your PDF exactly as ATS systems would see it. |
 | **CV Studio Pro** | Generates pixel-perfect PDFs in 32 premium themes with full customization. |
@@ -51,9 +51,12 @@ Integrated job search powered by **Adzuna API** (1000 free calls/month):
 - Search 1000+ job offers across France
 - Filter by keywords, location, and remote options
 - Click any offer to auto-fill the job description field
+- **GIS Map Visualization**: Interactive Leaflet map with geolocation markers
 - Combine with **Remotive API** for remote-first positions
 - No scraping, no CAPTCHA, 100% legal APIs
 - Get free API key at https://developer.adzuna.com/
+
+![Job Search Map Visualization](sig.png)
 
 ### 🎨 The PDF Engine (Python Worker)
 Most "beautiful" CVs (Canva/Design) fail ATS because they aren't readable by machines. Our Python backend uses **ReportLab** to draw exact coordinates:
@@ -188,6 +191,7 @@ IRIS operates as a dual-agent pipeline:
 - **Backend**: Python 3.11, ReportLab (PDF generation), python-docx (DOCX export)
 - **AI Engine**: Groq API / Mistral AI / Google AI (Gemini)
 - **Job Search**: Adzuna API + Remotive API
+- **Map Visualization**: Leaflet + React Leaflet for interactive geolocation
 - **PDF Processing**: pdfminer.six for text extraction
 - **Image Processing**: Pillow with face detection for photo optimization
 - **Diff Algorithm**: Myers' diff with word-level highlighting and Levenshtein similarity
@@ -289,6 +293,7 @@ See [CAREER_OPS_INTEGRATION.md](CAREER_OPS_INTEGRATION.md) for detailed document
 ### Job Search (Adzuna + Remotive)
 - Adzuna API integration (1000 free calls/month)
 - Search by keywords, location, remote filter
+- **Interactive GIS Map**: Leaflet-powered geolocation visualization with heatmap
 - Click to auto-fill job description
 - Combine with Remotive for remote jobs
 - Sort by date, relevance, salary

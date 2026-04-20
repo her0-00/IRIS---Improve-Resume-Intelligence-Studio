@@ -561,27 +561,6 @@ export default function Home() {
     }
   };
 
-  const handleApplyToJob = (job: any) => {
-    if (!job.description && !job.title) return;
-
-    // STRUCTURED INPUT FOR THE AUDIT SYSTEM (Metadata-First)
-    const structuredInput = `
-[[DÉTAILS DU POSTE]]
-INTITULÉ : ${job.title.toUpperCase()}
-ENTREPRISE : ${job.company?.display_name || 'ENTREPRISE CONFIDENTIELLE'}
-LIEU : ${job.location?.display_name || jobSearchLocation || 'NON SPÉCIFIÉ'}
-
-[[RÉSUMÉ DE L'OFFRE]]
-${job.description}
-
---------------------------------------------------
-💡 CONSEIL SYSTÈME : Pour un audit 100% précis, copiez-collez l'intégralité du texte original ici.
-`;
-
-    setJobDesc(structuredInput.trim());
-    setActiveTab('audit');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   return (
     <div className="page-container">
@@ -1370,6 +1349,20 @@ ${job.description}
                       Regardez l'onglet <strong>Audit</strong> : les "Missing Keywords" sont cruciaux. Intégrez-les naturellement dans vos descriptions pour augmenter votre probabilité de passage.
                     </p>
                   </div>
+
+                  <div className="ins cyan" style={{ margin: 0, background: 'rgba(78, 205, 196, 0.05)', border: '1px solid var(--border)' }}>
+                    <div className="ins-l">🗺️ Exploration SIG Global</div>
+                    <p style={{ fontSize: '0.85rem' }}>
+                      Utilisez la carte pour découvrir des hubs d'emploi. Le bouton <strong>Vue Globale</strong> en haut à droite vous permet de recentrer instantanément tous les jobs détectés.
+                    </p>
+                  </div>
+
+                  <div className="ins" style={{ margin: 0, background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border)' }}>
+                    <div className="ins-l">🌍 Mobilité Internationale</div>
+                    <p style={{ fontSize: '0.85rem' }}>
+                      Basculez entre les pays en tapant simplement le nom d'une ville (ex: <strong>"Londres"</strong> ou <strong>"Madrid"</strong>) pour activer la détection intelligente du pays.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -2068,7 +2061,7 @@ ${job.description}
                           }
                         }}
                       >
-                        {isSearchingJobs ? 'Scraping...' : '🔥 Auto-Match CV'}
+                        {isSearchingJobs ? 'Scraping...' : ' Auto-Match CV'}
                       </button>
                     </div>
                   </div>
@@ -2097,8 +2090,11 @@ ${job.description}
                         </div>
                       </div>
                       
-                      <div style={{ width: '100%' }}>
-                        <div style={{ position: 'relative', width: '100%', height: '520px', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ 
+                        width: '100%', 
+                        display: jobMatches.length > 0 ? 'block' : 'none' 
+                      }}>
+                        <div style={{ position: 'relative', width: '100%', height: 'var(--map-height, 520px)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
                            <JobMap jobs={jobMatches} />
                         </div>
                       </div>
@@ -2163,23 +2159,28 @@ ${job.description}
                       <div style={{ 
                         marginTop: '1.2rem', 
                         padding: '1rem', 
-                        border: '1px dashed var(--gold)', 
+                        border: '1px dashed ' + (job._matchScore >= 75 ? 'var(--green)' : job._matchScore >= 50 ? 'var(--amber)' : 'var(--gold)'), 
                         borderRadius: '8px', 
-                        background: 'rgba(200, 169, 110, 0.05)',
+                        background: (job._matchScore >= 75 ? 'rgba(82, 201, 122, 0.05)' : job._matchScore >= 50 ? 'rgba(232, 160, 48, 0.05)' : 'rgba(200, 169, 110, 0.05)'),
                         position: 'relative'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <Shield size={14} color="var(--gold)" />
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CONSEIL</span>
+                            <Zap size={14} color={job._matchScore >= 75 ? 'var(--green)' : job._matchScore >= 50 ? 'var(--amber)' : 'var(--gold)'} />
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: (job._matchScore >= 75 ? 'var(--green)' : job._matchScore >= 50 ? 'var(--amber)' : 'var(--gold)'), textTransform: 'uppercase', letterSpacing: '0.05em' }}>CONSEIL STRATÉGIQUE</span>
                           </div>
                           <a href={job.redirect_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.65rem', color: 'var(--cyan)', textDecoration: 'none', fontWeight: 700, background: 'rgba(99,179,237,0.1)', padding: '2px 8px', borderRadius: '4px' }}>
                             VOIR L'OFFRE COMPLÈTE &rarr;
                           </a>
                         </div>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text3)', margin: 0, lineHeight: '1.4' }}>
-                          Pour un résultat <b>100% précis</b> : Récupérez le contenu complet de l'offre via le lien ci-dessus, 
-                          collez-le dans la <b style={{color:'var(--gold)'}}>sidebar à gauche</b> (Job Description) et relancez l'analyse pour adapter votre CV.
+                        <p style={{ fontSize: '0.72rem', color: 'var(--text2)', margin: 0, lineHeight: '1.5' }}>
+                          {job._matchScore >= 75 ? (
+                            <>⭐ <strong>MATCH D'ÉVIDENCE :</strong> Vous êtes dans le top % des candidats. Pour garantir l'entretien, collez l'offre dans la <strong>sidebar à gauche</strong> et demandez une analyse d'impact pour ajouter des chiffres à votre CV.</>
+                          ) : job._matchScore >= 50 ? (
+                            <>🎯 <strong>POTENTIEL DÉTECTÉ :</strong> Votre profil est solide mais manque de mots-clés spécifiques. Collez le contenu dans l'onglet <strong>Audit Express</strong> à gauche pour optimiser vos compétences techniques.</>
+                          ) : (
+                            <>⚠️ <strong>GAP D'APTITUDES :</strong> Des compétences clés manquent à l'appel. Récupérez le texte complet de l'offre (lien ci-dessus), collez-le à gauche et identifiez les <strong>mots-clés critiques</strong> à intégrer.</>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -2195,12 +2196,12 @@ ${job.description}
                         <div style={{ color: 'var(--text2)' }}>
                           <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔍</div>
                           <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>Aucune offre trouvée</div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '14px' }}>Essayez ces ajustements :</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start', maxWidth: '320px', margin: '0 auto', textAlign: 'left' }}>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>💡 Raccourcissez le titre — ex: <strong>"alternance IA"</strong> au lieu de la phrase complète</span>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>🌍 Désactivez le <strong>filtre géo strict</strong> (peut filtrer des offres légitimes)</span>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>🏷️ Ajoutez vos compétences dans les tags sémantiques pour booster le score</span>
-                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>📍 Essayez une localisation plus large — ex: <strong>"France"</strong> ou <strong>"Paris"</strong></span>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text3)', marginBottom: '14px' }}>Essayez ces ajustements stratégiques :</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start', maxWidth: '400px', margin: '0 auto', textAlign: 'left' }}>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>💡 <strong>Simplifiez</strong> — ex: "Marketing" au lieu de "Responsable Marketing Digital senior"</span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>🌍 <strong>Élargissez</strong> — ex: "Ile-de-France" au lieu de "Paris 8"</span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>⚙️ <strong>Technicité</strong> — Utilisez des mots-clés directs (Java, SEO, Revit) sans phrases</span>
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text2)' }}>🏢 <strong>Entreprise</strong> — Tapez directement le nom d'un groupe pour voir ses ouvertures</span>
                           </div>
                         </div>
                       ) : (
