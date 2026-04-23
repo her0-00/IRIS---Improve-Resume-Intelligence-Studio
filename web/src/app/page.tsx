@@ -2264,6 +2264,14 @@ export default function Home() {
             {/* TAB: PDF EXPORT */}
             {activeTab === 'pdf' && (
               <div>
+                <div className="ins cyan" style={{ marginBottom: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid #10B981' }}>
+                  <div className="ins-l" style={{ color: '#10B981' }}>🔐 Rappel Confidentialité</div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text1)' }}>
+                    L'IA a utilisé des coordonnées fictives pour protéger votre vie privée pendant l'analyse. 
+                    <strong style={{ color: '#10B981' }}> N'oubliez pas de rétablir vos vraies coordonnées (Nom, Email, Tél) via le "Mode Édition Visuelle" ou l'onglet "Content" pour votre PDF final.</strong>
+                  </p>
+                </div>
+
                 <div className="card-hd" onClick={() => setShowAllThemes(!showAllThemes)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>🎨 Select Premium Theme <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: '0.8rem' }}>— 26 themes (16 standard + 10 photo)</span></span>
                   <span style={{ fontSize: '0.65rem', color: 'var(--gold)', fontFamily: 'Space Mono, monospace' }}>{showAllThemes ? '[- Hide]' : '[+ Show All]'}</span>
