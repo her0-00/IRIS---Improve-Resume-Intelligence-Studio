@@ -8,6 +8,13 @@ export const revalidate = 0;
 
 type AIProvider = 'groq' | 'mistral' | 'google';
 
+/**
+ * PRIVACY PROTECTION (Free Tier):
+ * If true, sensitive data (name, email, phone, links, location) in the CV 
+ * will be replaced by fictitious values before being sent to the AI.
+ */
+const ANONYMIZE_FOR_PRIVACY = true;
+
 // --- IN-MEMORY JOB STORE FOR POLLING ---
 interface AnalysisJob {
   id: string;
@@ -20,7 +27,6 @@ interface AnalysisJob {
 
 const jobs = new Map<string, AnalysisJob>();
 
-// Cleanup old jobs every hour or on every request (simple approach)
 function cleanupJobs() {
   const now = Date.now();
   const maxAge = 1000 * 60 * 60; // 1 hour
@@ -32,9 +38,7 @@ function cleanupJobs() {
 }
 
 /**
- * Sanitize extracted PDF text before sending to Groq.
- * Removes braces/brackets used as decorators in app-generated PDFs
- * (TechGrid/Startup/Logistics themes use { [ ] } as section markers).
+ * Sanitize extracted PDF text.
  */
 function sanitizeCvText(text: string): string {
   return text
@@ -46,10 +50,46 @@ function sanitizeCvText(text: string): string {
 }
 
 /**
- * Extract the first valid, complete JSON object from a string.
- * Works even if the model outputs preamble text before the JSON.
- * Strategy: find the first '{', then find the matching closing '}'
- * by tracking brace depth, accounting for strings.
+ * Anonymize sensitive info in CV text (Free Tier Privacy).
+ */
+function anonymizeCvText(text: string): string {
+  let lines = text.split('\n');
+  
+  // 1. Attempt to anonymize Name (often the first non-empty line)
+  let nameReplaced = false;
+  for (let i = 0; i < Math.min(lines.length, 5); i++) {
+    if (lines[i].trim().length > 3 && !nameReplaced) {
+      lines[i] = "JEAN DOE (Candidat Anonyme)";
+      nameReplaced = true;
+    }
+  }
+
+  let result = lines.join('\n');
+
+  // 2. Email addresses
+  result = result.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'contact@candidat-anonyme.fr');
+
+  // 3. Phone numbers (Standard FR/Intl patterns)
+  result = result.replace(/(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}/g, '06 00 00 00 00');
+
+  // 4. Social/Professional Links
+  result = result.replace(/https?:\/\/[^\s]+/g, (match) => {
+    const lower = match.toLowerCase();
+    if (lower.includes('linkedin.com')) return 'https://www.linkedin.com/in/candidat-anonyme';
+    if (lower.includes('github.com')) return 'https://github.com/candidat-anonyme';
+    if (lower.includes('portfolio') || lower.includes('behance') || lower.includes('dribbble')) return 'https://mon-portfolio-anonyme.com';
+    return 'https://lien-anonymise.com';
+  });
+
+  // 5. Location (Detecting common City + Zip patterns like "Paris 75000" or "75000 Paris")
+  result = result.replace(/\b\d{5}\b\s+[A-Z][a-z]+/g, '75000 Paris');
+  result = result.replace(/[A-Z][a-z]+\s+\b\d{5}\b/g, 'Paris 75000');
+
+  return result;
+}
+
+/**
+ * Extract JSON from model response.
  */
 function extractJson(text: string): any {
   const start = text.indexOf('{');
@@ -79,19 +119,15 @@ function extractJson(text: string): any {
 
 const GROQ_MODELS = [
   'llama-3.3-70b-versatile',
-  'openai/gpt-oss-120b',
-  'openai/gpt-oss-20b',
-  'qwen/qwen3-32b',
   'llama-3.1-8b-instant',
-  'meta-llama/llama-4-scout-17b-16e-instruct'
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b'
 ];
 
 const MISTRAL_MODELS = [
-  'mistral-large-latest',      // Puissance maximale (rare)
-  'ministral-8b-latest',       // OPTIMAL: rapide + précis pour parsing CV
-  'ministral-3b-latest',       // Ultra rapide fallback  
-  'mistral-small-latest',      // Très rapide fallback pour parsing simple si les autres échouent   
-  'open-mistral-nemo'          // Gratuit fallback
+  'mistral-large-latest',
+  'ministral-8b-latest',
+  'mistral-small-latest'
 ];
 
 const GOOGLE_MODELS = [
@@ -100,6 +136,8 @@ const GOOGLE_MODELS = [
   'gemini-flash-latest'
 ];
 
+// --- AI CALLERS ---
+
 async function callGoogle(
   apiKey: string,
   system: string,
@@ -107,103 +145,38 @@ async function callGoogle(
   label: string,
   timeoutMs: number = 120000
 ): Promise<{ data: any; model: string }> {
-  let lastError: any;
-  // Sanitize the API key to prevent ByteString Fetch TypeError when users accidentally paste invisible characters or emojis
   const cleanApiKey = apiKey.replace(/[^\x20-\x7E]/g, '').trim();
   const genAI = new GoogleGenerativeAI(cleanApiKey);
-  
-  // Remove ALL emojis and non-ASCII characters (Google API limitation)
-  const removeEmojis = (str: string) => {
-    return str
-      // Remove emojis and symbols
-      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
-      .replace(/[\u{2600}-\u{27BF}]/gu, '')
-      .replace(/[\u{2300}-\u{23FF}]/gu, '')
-      .replace(/[\u{2B00}-\u{2BFF}]/gu, '')
-      .replace(/[\u{FE00}-\u{FEFF}]/gu, '')
-      // Remove any remaining high unicode (>255)
-      .replace(/[^\x00-\xFF]/g, '')
-      // Clean up multiple spaces
-      .replace(/\s+/g, ' ')
-      .trim();
-  };
-  
-  const cleanSystem = removeEmojis(system);
-  const cleanUserMsg = removeEmojis(userMsg);
-  
+  let lastError: any;
+
   for (const modelName of GOOGLE_MODELS) {
     const modelStartTime = performance.now();
     try {
       console.log(`[${label}] Trying Google model: ${modelName}`);
       const model = genAI.getGenerativeModel({ 
         model: modelName,
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: 'application/json'
-        }
+        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
       });
-      
-      const prompt = `${cleanSystem}\n\n${cleanUserMsg}`;
       const result = await Promise.race([
-        model.generateContent(prompt),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), timeoutMs)
-        )
+        model.generateContent(`${system}\n\n${userMsg}`),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
       ]);
-      
-      const response = result.response;
-      const raw = response.text();
-      
+      const raw = (result as any).response.text();
       const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
-
-      if (!raw) {
-        console.warn(`[${label}][${modelName}] Empty response after ${duration}s, trying next...`);
-        lastError = new Error('Empty response');
-        continue;
-      }
-      
-      const rawText = typeof raw === 'string' ? raw : JSON.stringify(raw);
-      
-      try {
-        const parsed = JSON.parse(rawText);
-        console.log(`[${label}][${modelName}] Success in ${duration}s`);
-        return { data: parsed, model: modelName };
-      } catch (e: any) {
-        try {
-          const extracted = extractJson(rawText);
-          console.log(`[${label}][${modelName}] Success (with extraction) in ${duration}s`);
-          return { data: extracted, model: modelName };
-        } catch (e2: any) {
-          console.warn(`[${label}][${modelName}] JSON extraction failed after ${duration}s:`, e2.message);
-          lastError = new Error(`${label}: could not extract valid JSON from model response`);
-          continue;
-        }
-      }
+      if (!raw) continue;
+      const data = extractJson(raw);
+      console.log(`[${label}][${modelName}] Success in ${duration}s`);
+      return { data, model: modelName };
     } catch (err: any) {
       const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
-      console.error(`[${label}][${modelName}] Error after ${duration}s:`, err?.message || err);
-      const msg = err?.message || '';
-      // Retry on: timeout, quota, rate limit (429), high demand (503), service unavailable
-      if (msg === 'timeout' || msg.includes('quota') || msg.includes('429') || msg.includes('503') || msg.includes('high demand') || msg.includes('Service Unavailable') || msg.includes('aborted')) {
-        console.warn(`[${label}] ${modelName} skipped after ${duration}s (${msg.includes('503') || msg.includes('high demand') ? 'high demand' : msg.includes('429') ? 'rate limit' : 'timeout'}), trying next...`);
-        lastError = err;
-        continue;
-      }
-      if (msg.includes('fetch failed') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND') || msg.includes('404')) {
-        console.warn(`[${label}] ${modelName} not available after ${duration}s, trying next...`);
-        lastError = err;
-        continue;
-      }
+      console.error(`[${label}][${modelName}] Error after ${duration}s:`, err.message);
+      lastError = err;
+      // Continue to next model if timeout, rate limit (429), or server error (500, 502, 503, 504)
+      if (err.message === 'timeout' || err.message.includes('429') || err.message.includes('500') || err.message.includes('502') || err.message.includes('503') || err.message.includes('504')) continue;
       throw err;
     }
   }
-  
-  const isNetworkError = lastError?.message?.includes('fetch failed') || lastError?.message?.includes('ECONNREFUSED') || lastError?.message?.includes('ENOTFOUND');
-  if (isNetworkError) {
-    throw new Error('Erreur de connexion à Google AI. Vérifiez votre connexion internet ou essayez un autre provider.');
-  }
-  
-  throw new Error(lastError?.message ?? 'Erreur Google AI. Vérifiez votre clé API sur aistudio.google.com/apikey');
+  throw lastError;
 }
 
 async function callMistral(
@@ -219,86 +192,31 @@ async function callMistral(
     const modelStartTime = performance.now();
     try {
       console.log(`[${label}] Trying Mistral model: ${model}`);
-      
-      // Mistral SDK v2.x uses chat.stream() or chat.complete() differently
       const response = await Promise.race([
         mistral.chat.complete({
           model,
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: userMsg }
-          ],
+          messages: [{ role: 'system', content: system }, { role: 'user', content: userMsg }],
           temperature: 0.1,
           maxTokens,
-          responseFormat: { type: 'json_object' },
-          safePrompt: false
+          responseFormat: { type: 'json_object' }
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), timeoutMs)
-        )
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
       ]);
-      
       const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
-      console.log(`[${label}][${model}] Response received in ${duration}s`);
-      
-      // Extract content from Mistral response structure
-      const raw = response?.choices?.[0]?.message?.content || '';
-      
-      if (!raw) {
-        console.warn(`[${label}][${model}] Empty response after ${duration}s, trying next...`);
-        lastError = new Error('Empty response');
-        continue;
-      }
-      
-      try {
-        // If responseFormat json_object is used, content is already JSON
-        const rawText = typeof raw === 'string' ? raw : JSON.stringify(raw);
-        const parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
-        return { data: parsed, model };
-      } catch (e: any) {
-        // Fallback to extractJson if not pure JSON
-        try {
-          const rawText = typeof raw === 'string' ? raw : JSON.stringify(raw);
-          return { data: extractJson(rawText), model };
-        } catch (e2: any) {
-          console.warn(`[${label}][${model}] JSON extraction failed after ${duration}s:`, e2.message);
-          lastError = new Error(`${label}: could not extract valid JSON from model response`);
-          continue;
-        }
-      }
+      const raw = (response as any).choices?.[0]?.message?.content || '';
+      const data = extractJson(typeof raw === 'string' ? raw : JSON.stringify(raw));
+      console.log(`[${label}][${model}] Success in ${duration}s`);
+      return { data, model };
     } catch (err: any) {
       const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
-      console.error(`[${label}][${model}] Error after ${duration}s:`, err?.message || err);
-      const msg = err?.message || '';
-      const skip = err?.statusCode === 429 || msg.includes('429') || msg.includes('rate_limit') || msg === 'timeout' || msg.includes('aborted');
-      if (skip) {
-        console.warn(`[${label}] ${model} skipped after ${duration}s (${msg.includes('rate_limit') || err?.statusCode === 429 ? 'rate-limit' : 'timeout'}), trying next...`);
-        lastError = err;
-        continue;
-      }
-      // Don't throw on connection errors, try next model
-      if (msg.includes('fetch failed') || msg.includes('ConnectionError') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) {
-        console.warn(`[${label}] ${model} connection failed after ${duration}s, trying next...`);
-        lastError = err;
-        continue;
-      }
+      console.error(`[${label}][${model}] Error after ${duration}s:`, err.message);
+      lastError = err;
+      // Continue to next model if timeout, rate limit, or server error
+      if (err.message === 'timeout' || err.statusCode === 429 || (err.statusCode >= 500 && err.statusCode <= 504)) continue;
       throw err;
     }
   }
-  const isRateLimit = lastError?.statusCode === 429 || lastError?.message?.includes('rate_limit');
-  const isNetworkError = lastError?.message?.includes('fetch failed') || lastError?.message?.includes('ECONNREFUSED') || lastError?.message?.includes('ENOTFOUND');
-  
-  if (isNetworkError) {
-    throw new Error(
-      'Erreur de connexion à Mistral AI. Vérifiez votre connexion internet ou essayez Groq à la place.'
-    );
-  }
-  
-  throw new Error(
-    isRateLimit
-      ? 'Quota Mistral épuisé sur tous les modèles. Attendez quelques minutes.'
-      : (lastError?.message ?? 'Erreur Mistral AI. Vérifiez votre clé API sur console.mistral.ai')
-  );
+  throw lastError;
 }
 
 async function callGroq(
@@ -316,72 +234,68 @@ async function callGroq(
       console.log(`[${label}] Trying Groq model: ${model}`);
       const completion = await Promise.race([
         groq.chat.completions.create({
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: userMsg }
-          ],
+          messages: [{ role: 'system', content: system }, { role: 'user', content: userMsg }],
           model,
           temperature: 0.1,
           max_tokens: maxTokens,
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), timeoutMs)
-        )
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeoutMs))
       ]);
       const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
       const raw = (completion as any).choices[0]?.message?.content || '';
-      try {
-        const parsed = extractJson(raw);
-        console.log(`[${label}][${model}] Success in ${duration}s`);
-        return { data: parsed, model };
-      } catch (e: any) {
-        console.warn(`[${label}][${model}] JSON extraction failed after ${duration}s, trying next model...`);
-        lastError = new Error(`${label}: could not extract valid JSON from model response`);
-        continue;
-      }
+      const data = extractJson(raw);
+      console.log(`[${label}][${model}] Success in ${duration}s`);
+      return { data, model };
     } catch (err: any) {
       const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
-      console.error(`[${label}][${model}] Error after ${duration}s:`, err?.message || err);
-      const msg = err?.message || '';
-      const skip = err?.status === 429 || msg.includes('429') || msg.includes('rate_limit')
-        || (err?.status === 400 && msg.includes('decommissioned'))
-        || msg === 'timeout' || msg.includes('aborted');
-      if (skip) {
-        console.warn(`[${label}] ${model} skipped after ${duration}s (${msg.includes('rate_limit') || err?.status === 429 ? 'rate-limit' : msg === 'timeout' ? 'timeout' : 'decommissioned'}), trying next...`);
-        lastError = err;
-        continue;
-      }
+      console.error(`[${label}][${model}] Error after ${duration}s:`, err.message);
+      lastError = err;
+      // Continue to next model if timeout, rate limit, or server error
+      if (err.message === 'timeout' || err.status === 429 || (err.status >= 500 && err.status <= 504)) continue;
       throw err;
     }
   }
-  const isRateLimit = lastError?.status === 429 || lastError?.message?.includes('rate_limit');
-  throw new Error(
-    isRateLimit
-      ? 'Quota Groq épuisé sur tous les modèles. Attendez quelques minutes ou upgradez votre plan sur console.groq.com.'
-      : (lastError?.message ?? 'All models failed')
-  );
+  throw lastError;
 }
 
-export async function POST(req: Request) {
+// --- HANDLERS ---
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const jobId = searchParams.get('jobId');
+  if (!jobId) return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+  const job = jobs.get(jobId);
+  if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  return NextResponse.json(job);
+}
+
+async function performAnalysis(jobId: string, params: any) {
+  const job = jobs.get(jobId);
+  if (!job) return;
+
   try {
-    const { cv_text, job_desc, api_key, boost_mode, lang, ai_provider } = await req.json();
+    job.status = 'processing';
+    job.progress = 'Starting Analysis...';
+    
+    const { cv_text, job_desc, api_key, boost_mode, lang, ai_provider } = params;
     const provider: AIProvider = ai_provider || 'groq';
     const outputLang = lang === 'en' ? 'English' : 'French';
 
-    if (!cv_text) {
-      return NextResponse.json({ error: 'Missing cv_text' }, { status: 400 });
-    }
-
     const apiKeyRaw = api_key || (provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.GOOGLE_API_KEY);
-    if (!apiKeyRaw) {
-      return NextResponse.json({ error: `Missing ${provider === 'groq' ? 'Groq' : provider === 'mistral' ? 'Mistral' : 'Google'} API Key` }, { status: 400 });
-    }
-    // Sanitize API key to prevent "ByteString" Fetch errors from accidentally copied emojis or zero-width spaces in the UI input
+    if (!apiKeyRaw) throw new Error(`Missing ${provider} API Key`);
     const apiKeyToUse = apiKeyRaw.replace(/[^\x20-\x7E]/g, '').trim();
 
-    const cleanCvText = sanitizeCvText(cv_text);
+    let cleanCvText = sanitizeCvText(cv_text);
+    
+    // Privacy protection for Free Tier
+    if (ANONYMIZE_FOR_PRIVACY) {
+      console.log(`[${jobId}] Privacy Mode Active: Anonymizing CV text before AI processing.`);
+      cleanCvText = anonymizeCvText(cleanCvText);
+    }
 
-    // ── AGENT 1: CV Audit ────────────────────────────────────────────────────────────────────────────────
+    // --- AGENT 1: STRATEGIC AUDIT ---
+    job.progress = 'Step 1: Strategic Audit...';
+    
     const system1 = `You are a senior HR expert, work psychologist and ATS specialist.
 Analyze the CV and job offer provided, then output a single JSON object.
 CRITICAL: Base ALL analysis strictly on the actual CV content. For present_keywords, only list keywords that genuinely appear in the CV. For missing_keywords, only list keywords from the job offer that are truly absent from the CV.
@@ -417,84 +331,19 @@ Required fields:
     "pros": array of strings (the conform points),
     "cons": array of strings (the points to improve)
   }
-import { NextResponse } from 'next/server';
-import { Mistral } from '@mistralai/mistralai';
-import Groq from 'groq-sdk';
+- orthography_verdict: string (detailed qualitative feedback)
+- benchmark: object {tech, finance, consulting, marketing, rh_legal} (0-100)
+- grounding: object {top_strength, pourquoi_ignore, market_value} using {"text", "line"}
 
-/**
- * Global job store
- */
-type AnalysisJob = {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: string;
-  result?: any;
-  error?: string;
-  createdAt: number;
-};
+ATS STRUCTURE DETECTION:
+- Canva/Design CVs with columns ALWAYS fail ATS parsing - warn the user explicitly
+Output ONLY the raw JSON object. Do not add any explanation, markdown, or text outside the JSON.`;
 
-const jobs = new Map<string, AnalysisJob>();
+    const cvTextLines = cleanCvText.split('\n');
+    const cvWithHeaderMarks = cvTextLines.map((line, idx) => 
+      idx < 10 ? `[HEADER: CONTACT INFO - DO NOT CITE FOR STRENGTHS] ${line}` : line
+    ).join('\n');
 
-function cleanupJobs() {
-  const now = Date.now();
-  for (const [id, job] of jobs.entries()) {
-    if (now - job.createdAt > 3600000) jobs.delete(id);
-  }
-}
-
-/**
- * GET Handler for polling job status
- */
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const jobId = searchParams.get('jobId');
-
-  if (!jobId) {
-    return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
-  }
-
-  const job = jobs.get(jobId);
-  if (!job) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-  }
-
-  return NextResponse.json(job);
-}
-
-/**
- * Background Analysis Function
- */
-async function performAnalysis(jobId: string, params: {
-  cv_text: string,
-  job_desc: string,
-  api_key: string,
-  boost_mode: boolean,
-  lang: 'fr' | 'en',
-  ai_provider: AIProvider
-}) {
-  const job = jobs.get(jobId);
-  if (!job) return;
-
-  try {
-    job.status = 'processing';
-    job.progress = params.lang === 'en' ? 'Starting analysis...' : 'Démarrage de l\'analyse...';
-
-    const { cv_text, job_desc, api_key, boost_mode, lang, ai_provider } = params;
-    const provider = ai_provider || 'groq';
-    const apiKeyToUse = (api_key || (provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.GOOGLE_API_KEY))?.replace(/[^\x20-\x7E]/g, '').trim();
-
-    if (!apiKeyToUse) throw new Error('Missing API Key');
-
-    // 1. Audit Section
-    job.progress = lang === 'en' ? 'Step 1: Strategic Audit...' : 'Étape 1 : Audit Stratégique...';
-    
-    const sanitizedText = sanitizeCvText(cv_text);
-    const cvWithHeaderMarks = sanitizedText
-      .split('\n')
-      .map((line, i) => i < 40 ? `[HEADER_ZONE_L${i+1}] ${line}` : line)
-      .join('\n');
-
-    const system1 = `Senior Recruitment Auditor. Lang: ${lang}. Task: Strategic CV Audit & Extraction. Return raw JSON only.`;
     const prompt1 = `CV TEXT (Indexed):\n${cvWithHeaderMarks.substring(0, 6000)}\n\nJOB OFFER:\n${job_desc ? job_desc.substring(0, 3000) : 'Senior management — general analysis'}`;
     
     const agent1Result = provider === 'groq'
@@ -504,7 +353,13 @@ async function performAnalysis(jobId: string, params: {
       : await callGoogle(apiKeyToUse, system1, prompt1, 'Agent1-Audit', 120000);
     
     const analysisData = agent1Result.data;
+    const currentScore = analysisData.global_score || 0;
+    const missingKws = (analysisData.missing_keywords || []).slice(0, 8).join(', ');
 
+    // --- AGENT 2: DEEP REWRITE ---
+    job.progress = 'Step 2: Deep Rewriting...';
+
+    const system2 = boost_mode
       ? `You are an aggressive CV optimizer and career coach. Your goal: make this CV the strongest possible candidate for the target job.
 WRITE EVERYTHING IN ${outputLang.toUpperCase()} — including role titles, bullets, summary, skill category names, and education details. Translate any French content to ${outputLang}.
 
@@ -581,7 +436,6 @@ ${job_desc ? job_desc.substring(0, 2000) : 'General optimization for senior tech
 
 IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL role titles, bullets, summary, and skill category names into ${outputLang}. Do NOT keep any French words in role titles or bullets.`;
 
-    // Long-form generation: Boost timeout to 60s and tokens to 6000
     const agent2Result = provider === 'groq'
       ? await callGroq(new Groq({ apiKey: apiKeyToUse }), system2, prompt2, 'Agent2-Rewrite', 120000, 6000)
       : provider === 'mistral'
@@ -590,13 +444,15 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
     
     const llmFields = agent2Result.data;
 
+    // --- NORMALIZATION (RESTORING ORIGINAL LOGIC) ---
+
     // Normalize skills: [{category, skills}] or [{name, skills}] -> {categories:[{name,items}]}
     let skills = llmFields.skills;
     if (Array.isArray(skills)) {
       skills = {
         categories: skills.map((s: any) => ({
-          name: s.name ?? s.category ?? '',
-          items: s.items ?? s.skills ?? []
+          name: s?.name ?? s?.category ?? '',
+          items: s?.items ?? s?.skills ?? []
         }))
       };
     } else if (!skills?.categories) {
@@ -623,49 +479,48 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
       return (isEn ? en : fr)[Math.min(Math.max(n, 1), 5)] ?? '';
     };
     languages = languages.map((l: any) => {
-      const num = typeof l.level_num === 'number' ? l.level_num : 3;
+      const num = typeof l?.level_num === 'number' ? l.level_num : 3;
       const isEn = outputLang === 'English';
-      const level = (typeof l.level === 'string' && l.level.trim()) ? l.level.replace(/\*\*/g, '').replace(/\*/g, '') : levelLabel(num, isEn);
+      const level = (typeof l?.level === 'string' && l.level.trim()) ? l.level.replace(/\*\*/g, '').replace(/\*/g, '') : levelLabel(num, isEn);
       return { 
-        lang: typeof l.lang === 'string' ? l.lang.replace(/\*\*/g, '').replace(/\*/g, '') : '', 
+        lang: typeof l?.lang === 'string' ? l.lang.replace(/\*\*/g, '').replace(/\*/g, '') : '', 
         level, 
         level_num: num 
       };
     });
 
-    // Normalize experiences: strings → {role, company, period, location, bullets}
+    // Normalize experiences: strings -> {role, company, period, location, bullets}
     const rawExp = Array.isArray(llmFields.experiences) ? llmFields.experiences : [];
     const experiences = rawExp.map((e: any) => {
       if (typeof e === 'string') {
         return { role: e, company: '', period: '', location: '', bullets: [] };
       }
-      // Clean markdown from bullets
-      const cleanBullets = Array.isArray(e.bullets) 
+      const cleanBullets = Array.isArray(e?.bullets) 
         ? e.bullets
             .filter((b: any) => typeof b === 'string')
             .map((b: string) => b.replace(/\*\*/g, '').replace(/\*/g, ''))
         : [];
       
       return {
-        role: typeof e.role === 'string' ? e.role.replace(/\*\*/g, '').replace(/\*/g, '') : '',
-        company: typeof e.company === 'string' ? e.company : '',
-        period: typeof e.period === 'string' ? e.period : (e.period ?? ''),
-        location: typeof e.location === 'string' ? e.location : '',
+        role: typeof e?.role === 'string' ? e.role.replace(/\*\*/g, '').replace(/\*/g, '') : '',
+        company: typeof e?.company === 'string' ? e.company : '',
+        period: typeof e?.period === 'string' ? e.period : (e?.period ?? ''),
+        location: typeof e?.location === 'string' ? e.location : '',
         bullets: cleanBullets,
       };
     });
 
-    // Normalize education: strings ÔåÆ {degree, school, year, detail}
+    // Normalize education: strings -> {degree, school, year, detail}
     const rawEdu = Array.isArray(llmFields.education) ? llmFields.education : [];
     const education = rawEdu.map((e: any) => {
       if (typeof e === 'string') {
         return { degree: e, school: '', year: '', detail: null };
       }
       return {
-        degree: typeof e.degree === 'string' ? e.degree.replace(/\*\*/g, '').replace(/\*/g, '') : '',
-        school: typeof e.school === 'string' ? e.school : '',
-        year: typeof e.year === 'string' ? e.year : (e.year ?? ''),
-        detail: typeof e.detail === 'string' ? e.detail.replace(/\*\*/g, '').replace(/\*/g, '') : null,
+        degree: typeof e?.degree === 'string' ? e.degree.replace(/\*\*/g, '').replace(/\*/g, '') : '',
+        school: typeof e?.school === 'string' ? e.school : '',
+        year: typeof e?.year === 'string' ? e.year : (e?.year ?? ''),
+        detail: typeof e?.detail === 'string' ? e.detail.replace(/\*\*/g, '').replace(/\*/g, '') : null,
       };
     });
 
@@ -691,7 +546,9 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
       score_after:  Math.min(currentScore + 15, 100),
     };
 
-    return NextResponse.json({
+    job.status = 'completed';
+    job.progress = 'Finished';
+    job.result = {
       ...analysisData,
       _cv_data: cvDataStructured,
       _models_used: {
@@ -699,33 +556,26 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
         agent1: agent1Result.model,
         agent2: agent2Result.model
       }
-    });
+    };
 
+  } catch (err: any) {
+    console.error(`[JOB-FAILED][${jobId}]`, err);
+    job.status = 'failed';
+    job.error = err.message || 'Analysis failed';
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    cleanupJobs();
+    const params = await req.json();
+    const jobId = Math.random().toString(36).substring(2, 15);
+    jobs.set(jobId, { id: jobId, status: 'pending', progress: 'In Queue', createdAt: Date.now() });
+    
+    performAnalysis(jobId, params).catch(console.error);
+    
+    return NextResponse.json({ jobId });
   } catch (error: any) {
-    console.error('AI Analysis Error:', error);
-    let errorMessage = error.message || 'AI Analysis Failed';
-    const statusCode = error.statusCode || error.status || 500;
-    
-    // Detect provider from error context or default to 'unknown'
-    let detectedProvider: AIProvider = 'groq';
-    try {
-      const body = await req.json();
-      detectedProvider = body.ai_provider || 'groq';
-    } catch {
-      // If we can't parse the request, use default
-    }
-    
-    // Add helpful context for common errors
-    if (errorMessage.includes('fetch failed') || errorMessage.includes('ECONNREFUSED')) {
-      errorMessage = `Erreur de connexion à ${detectedProvider === 'groq' ? 'Groq' : detectedProvider === 'mistral' ? 'Mistral' : 'Google'} AI. Vérifiez votre connexion internet ou essayez un autre provider.`;
-    } else if (errorMessage.includes('API Key') || errorMessage.includes('api_key')) {
-      errorMessage = `Clé API ${detectedProvider === 'groq' ? 'Groq' : detectedProvider === 'mistral' ? 'Mistral' : 'Google'} invalide. Vérifiez votre clé sur ${detectedProvider === 'groq' ? 'console.groq.com' : detectedProvider === 'mistral' ? 'console.mistral.ai' : 'aistudio.google.com/apikey'}`;
-    }
-    
-    return NextResponse.json({ 
-      error: errorMessage,
-      provider: detectedProvider,
-      suggestion: detectedProvider === 'google' ? 'Essayez Groq ou Mistral' : detectedProvider === 'mistral' ? 'Essayez Groq ou Google' : 'Essayez Mistral ou Google'
-    }, { status: statusCode });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

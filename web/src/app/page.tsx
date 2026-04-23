@@ -111,6 +111,7 @@ export default function Home() {
   const [photoPreview, setPhotoPreview] = useState<string>('');
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [analysisResult, setAnalysisResult] = useState<any>(null);
@@ -343,6 +344,7 @@ export default function Home() {
     if (!apiKey) return alert('Please enter your Groq API Key.');
 
     setIsAnalyzing(true);
+    setAnalysisProgress('Starting analysis...');
     setPdfData(null);
     try {
       const res = await fetch('/api/analyze', {
@@ -350,32 +352,40 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cv_text: cvText, job_desc: jobDesc, api_key: apiKey, boost_mode: boostMode, lang, ai_provider: aiProvider })
       });
-      const data = await res.json();
-      if (data.error) {
-        // Show error with suggestion if available
-        const errorMsg = data.suggestion
-          ? `${data.error}\n\n💡 ${data.suggestion}`
-          : data.error;
-        throw new Error(errorMsg);
+      const { jobId, error } = await res.json();
+      if (error) throw new Error(error);
+
+      // Start Polling
+      let completed = false;
+      while (!completed) {
+        // Wait 2.5 seconds between polls
+        await new Promise(r => setTimeout(r, 2500));
+        
+        const pollRes = await fetch(`/api/analyze?jobId=${jobId}`);
+        if (!pollRes.ok) throw new Error('Failed to check status');
+        
+        const job = await pollRes.json();
+        setAnalysisProgress(job.progress || '');
+
+        if (job.status === 'completed') {
+          const data = job.result;
+          setAnalysisResult(data);
+          
+          const newKeywords = data.missing_keywords || [];
+          if (newKeywords.length > 0) {
+            setAtsKeywords(prev => Array.from(new Set([...prev, ...newKeywords])));
+          }
+          setEditedCvDataJSON(JSON.stringify(data._cv_data, null, 2));
+          completed = true;
+        } else if (job.status === 'failed') {
+          throw new Error(job.error || 'Analysis failed');
+        }
       }
-
-      setAnalysisResult(data);
-
-      // Accumulate keywords implicitly (Merge old and new without duplicates)
-      const newKeywords = data.missing_keywords || [];
-      if (newKeywords.length > 0) {
-        setAtsKeywords(prev => {
-          const combined = [...prev, ...newKeywords];
-          return Array.from(new Set(combined));
-        });
-      }
-
-      setEditedCvDataJSON(JSON.stringify(data._cv_data, null, 2));
-      setPdfData(null);
     } catch (err: any) {
       alert("Analysis error: " + err.message);
     } finally {
       setIsAnalyzing(false);
+      setAnalysisProgress('');
     }
   };
 
@@ -800,8 +810,27 @@ export default function Home() {
             </div>
           </div>
 
+          <div style={{ 
+            background: 'rgba(52, 211, 153, 0.1)', 
+            border: '1px solid #10B981', 
+            borderRadius: '8px', 
+            padding: '10px', 
+            marginBottom: '1rem', 
+            fontSize: '0.65rem', 
+            color: 'var(--text2)', 
+            display: 'flex', 
+            gap: '8px',
+            lineHeight: '1.4'
+          }}>
+            <Shield size={16} style={{ flexShrink: 0, color: '#10B981' }} />
+            <div>
+              <strong style={{ color: '#10B981', display: 'block', marginBottom: '2px' }}>CONFIDENTIALITÉ ACTIVE</strong>
+              Vos données personnelles sont anonymisées automatiquement avant l'envoi à l'IA. Rétablissez-les dans l'onglet "Content" avant l'export final.
+            </div>
+          </div>
+
           <button className="btn-primary" onClick={handleAnalyze} disabled={isAnalyzing || (!cvText && !file)}>
-            {isAnalyzing ? "Analyzing CV..." : "⬡ LAUNCH AUDIT"}
+            {isAnalyzing ? (analysisProgress || "Analyzing...") : "⬡ LAUNCH AUDIT"}
           </button>
 
           <div
@@ -885,7 +914,7 @@ export default function Home() {
             {isAnalyzing ? (
               <>
                 <div className="spinner" style={{ marginBottom: '1rem' }}></div>
-                <h3 style={{ color: 'var(--gold-bright)' }}>Analyzing with {aiProvider === 'groq' ? 'Groq' : aiProvider === 'mistral' ? 'Mistral' : 'Google'} AI...</h3>
+                <h3 style={{ color: 'var(--gold-bright)' }}>{analysisProgress || `Analyzing with ${aiProvider === 'groq' ? 'Groq' : aiProvider === 'mistral' ? 'Mistral' : 'Google'} AI...`}</h3>
                 <p>Running multi-agent diagnostics on your resume...</p>
               </>
             ) : (
@@ -1724,6 +1753,15 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+
+                <div className="ins cyan" style={{ marginBottom: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid #10B981' }}>
+                  <div className="ins-l" style={{ color: '#10B981' }}>🔐 Note sur la Confidentialité</div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text1)' }}>
+                    Vos informations personnelles (Nom, Email, Tél, Liens) ont été remplacées par des valeurs fictives pour protéger votre vie privée pendant l'analyse IA. 
+                    <strong style={{ color: '#10B981' }}> N'oubliez pas de remettre vos vraies coordonnées dans le JSON ci-dessous avant d'exporter votre PDF !</strong>
+                  </p>
+                </div>
+
                 <p style={{ color: 'var(--text2)', marginBottom: '1rem', fontSize: '0.85rem' }}>
                   Vous pouvez modifier librement le texte de votre CV ici avant de générer le PDF.
                   Assurez-vous de conserver un format JSON valide !
