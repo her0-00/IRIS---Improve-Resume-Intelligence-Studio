@@ -119,6 +119,7 @@ No preamble. No markdown code blocks. Just raw JSON.`;
     let content = '';
     let lastError;
 
+    const timeoutMs = 120000;
     if (provider === 'groq') {
       const groq = new Groq({ apiKey: apiKeyToUse });
       const fallbackModels = [
@@ -129,27 +130,37 @@ No preamble. No markdown code blocks. Just raw JSON.`;
       ];
 
       for (const model of fallbackModels) {
+        const modelStartTime = performance.now();
         try {
           console.log(`[BRAND-COLORS] Attempting Groq model: ${model}`);
-          const chatCompletion = await groq.chat.completions.create({
-            messages: [{ role: 'user', content: combinedPrompt }],
-            model: model,
-            temperature: 0.1,
-            max_tokens: 1000,
-          });
-          content = (chatCompletion.choices[0]?.message?.content || '').trim();
+          const chatCompletion = await Promise.race([
+            groq.chat.completions.create({
+              messages: [{ role: 'user', content: combinedPrompt }],
+              model: model,
+              temperature: 0.1,
+              max_tokens: 1000,
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), timeoutMs)
+            )
+          ]);
+          const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+          console.log(`[BRAND-COLORS][${model}] Success in ${duration}s`);
+          content = ((chatCompletion as any).choices[0]?.message?.content || '').trim();
           break;
         } catch (err: any) {
+          const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+          console.error(`[BRAND-COLORS][${model}] Error after ${duration}s:`, err?.message || err);
           lastError = err;
-          if (err.status === 429) {
-            console.warn(`[BRAND-COLORS] Groq ${model} rate limited, trying next...`);
+          if (err.status === 429 || err.message === 'timeout' || err.message.includes('aborted')) {
+            console.warn(`[BRAND-COLORS] Groq ${model} failed (${err.message}), trying next...`);
             continue;
           }
           throw err;
         }
       }
     } else if (provider === 'mistral') {
-      const mistral = new Mistral({ apiKey: apiKeyToUse });
+      const mistral = new Mistral({ apiKey: apiKeyToUse, timeoutMs: 120000 });
       const fallbackModels = [
         'ministral-8b-latest',
         'mistral-small-latest',
@@ -157,24 +168,34 @@ No preamble. No markdown code blocks. Just raw JSON.`;
       ];
 
       for (const model of fallbackModels) {
+        const modelStartTime = performance.now();
         try {
           console.log(`[BRAND-COLORS] Attempting Mistral model: ${model}`);
-          const response = await mistral.chat.complete({
-            model,
-            messages: [{ role: 'user', content: combinedPrompt }],
-            temperature: 0.1,
-            maxTokens: 1000,
-            responseFormat: { type: 'json_object' },
-            safePrompt: false
-          });
-          const raw = response?.choices?.[0]?.message?.content || '';
+          const response = await Promise.race([
+            mistral.chat.complete({
+              model,
+              messages: [{ role: 'user', content: combinedPrompt }],
+              temperature: 0.1,
+              maxTokens: 1000,
+              responseFormat: { type: 'json_object' },
+              safePrompt: false
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), timeoutMs)
+            )
+          ]);
+          const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+          console.log(`[BRAND-COLORS][${model}] Success in ${duration}s`);
+          const raw = (response as any)?.choices?.[0]?.message?.content || '';
           content = typeof raw === 'string' ? raw : JSON.stringify(raw);
           break;
         } catch (err: any) {
+          const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+          console.error(`[BRAND-COLORS][${model}] Error after ${duration}s:`, err?.message || err);
           lastError = err;
           const msg = err?.message || '';
-          if (err?.statusCode === 429 || msg.includes('rate_limit')) {
-            console.warn(`[BRAND-COLORS] Mistral ${model} rate limited, trying next...`);
+          if (err?.statusCode === 429 || msg.includes('rate_limit') || msg === 'timeout' || msg.includes('aborted')) {
+            console.warn(`[BRAND-COLORS] Mistral ${model} failed (${msg}), trying next...`);
             continue;
           }
           if (msg.includes('fetch failed') || msg.includes('ConnectionError')) {
@@ -194,6 +215,7 @@ No preamble. No markdown code blocks. Just raw JSON.`;
       ];
 
       for (const modelName of fallbackModels) {
+        const modelStartTime = performance.now();
         try {
           console.log(`[BRAND-COLORS] Attempting Google model: ${modelName}`);
           const model = genAI.getGenerativeModel({ 
@@ -203,17 +225,26 @@ No preamble. No markdown code blocks. Just raw JSON.`;
               responseMimeType: 'application/json'
             }
           });
-          const result = await model.generateContent(combinedPrompt);
-          content = result.response.text();
+          const result = await Promise.race([
+            model.generateContent(combinedPrompt),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('timeout')), timeoutMs)
+            )
+          ]);
+          const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+          console.log(`[BRAND-COLORS][${modelName}] Success in ${duration}s`);
+          content = (result as any).response.text();
           if (typeof content !== 'string') {
             content = JSON.stringify(content);
           }
           break;
         } catch (err: any) {
+          const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+          console.error(`[BRAND-COLORS][${modelName}] Error after ${duration}s:`, err?.message || err);
           lastError = err;
           const msg = err?.message || '';
-          if (msg.includes('quota') || msg.includes('429')) {
-            console.warn(`[BRAND-COLORS] Google ${modelName} quota exceeded, trying next...`);
+          if (msg.includes('quota') || msg.includes('429') || msg === 'timeout' || msg.includes('aborted')) {
+            console.warn(`[BRAND-COLORS] Google ${modelName} failed (${msg}), trying next...`);
             continue;
           }
           if (msg.includes('fetch failed') || msg.includes('ECONNREFUSED') || msg.includes('404')) {

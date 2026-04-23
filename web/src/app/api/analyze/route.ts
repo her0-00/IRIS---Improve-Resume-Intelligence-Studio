@@ -8,6 +8,29 @@ export const revalidate = 0;
 
 type AIProvider = 'groq' | 'mistral' | 'google';
 
+// --- IN-MEMORY JOB STORE FOR POLLING ---
+interface AnalysisJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: string;
+  result?: any;
+  error?: string;
+  createdAt: number;
+}
+
+const jobs = new Map<string, AnalysisJob>();
+
+// Cleanup old jobs every hour or on every request (simple approach)
+function cleanupJobs() {
+  const now = Date.now();
+  const maxAge = 1000 * 60 * 60; // 1 hour
+  for (const [id, job] of jobs.entries()) {
+    if (now - job.createdAt > maxAge) {
+      jobs.delete(id);
+    }
+  }
+}
+
 /**
  * Sanitize extracted PDF text before sending to Groq.
  * Removes braces/brackets used as decorators in app-generated PDFs
@@ -82,7 +105,7 @@ async function callGoogle(
   system: string,
   userMsg: string,
   label: string,
-  timeoutMs: number = 30000
+  timeoutMs: number = 120000
 ): Promise<{ data: any; model: string }> {
   let lastError: any;
   // Sanitize the API key to prevent ByteString Fetch TypeError when users accidentally paste invisible characters or emojis
@@ -109,6 +132,7 @@ async function callGoogle(
   const cleanUserMsg = removeEmojis(userMsg);
   
   for (const modelName of GOOGLE_MODELS) {
+    const modelStartTime = performance.now();
     try {
       console.log(`[${label}] Trying Google model: ${modelName}`);
       const model = genAI.getGenerativeModel({ 
@@ -130,8 +154,10 @@ async function callGoogle(
       const response = result.response;
       const raw = response.text();
       
+      const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+
       if (!raw) {
-        console.warn(`[${label}][${modelName}] Empty response, trying next...`);
+        console.warn(`[${label}][${modelName}] Empty response after ${duration}s, trying next...`);
         lastError = new Error('Empty response');
         continue;
       }
@@ -140,27 +166,31 @@ async function callGoogle(
       
       try {
         const parsed = JSON.parse(rawText);
+        console.log(`[${label}][${modelName}] Success in ${duration}s`);
         return { data: parsed, model: modelName };
       } catch (e: any) {
         try {
-          return { data: extractJson(rawText), model: modelName };
+          const extracted = extractJson(rawText);
+          console.log(`[${label}][${modelName}] Success (with extraction) in ${duration}s`);
+          return { data: extracted, model: modelName };
         } catch (e2: any) {
-          console.warn(`[${label}][${modelName}] JSON extraction failed:`, e2.message);
+          console.warn(`[${label}][${modelName}] JSON extraction failed after ${duration}s:`, e2.message);
           lastError = new Error(`${label}: could not extract valid JSON from model response`);
           continue;
         }
       }
     } catch (err: any) {
-      console.error(`[${label}][${modelName}] Error:`, err?.message || err);
+      const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+      console.error(`[${label}][${modelName}] Error after ${duration}s:`, err?.message || err);
       const msg = err?.message || '';
       // Retry on: timeout, quota, rate limit (429), high demand (503), service unavailable
-      if (msg === 'timeout' || msg.includes('quota') || msg.includes('429') || msg.includes('503') || msg.includes('high demand') || msg.includes('Service Unavailable')) {
-        console.warn(`[${label}] ${modelName} skipped (${msg.includes('503') || msg.includes('high demand') ? 'high demand' : msg.includes('429') ? 'rate limit' : 'timeout'}), trying next...`);
+      if (msg === 'timeout' || msg.includes('quota') || msg.includes('429') || msg.includes('503') || msg.includes('high demand') || msg.includes('Service Unavailable') || msg.includes('aborted')) {
+        console.warn(`[${label}] ${modelName} skipped after ${duration}s (${msg.includes('503') || msg.includes('high demand') ? 'high demand' : msg.includes('429') ? 'rate limit' : 'timeout'}), trying next...`);
         lastError = err;
         continue;
       }
       if (msg.includes('fetch failed') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND') || msg.includes('404')) {
-        console.warn(`[${label}] ${modelName} not available, trying next...`);
+        console.warn(`[${label}] ${modelName} not available after ${duration}s, trying next...`);
         lastError = err;
         continue;
       }
@@ -181,11 +211,12 @@ async function callMistral(
   system: string,
   userMsg: string,
   label: string,
-  timeoutMs: number = 30000,
+  timeoutMs: number = 120000,
   maxTokens: number = 4096
 ): Promise<{ data: any; model: string }> {
   let lastError: any;
   for (const model of MISTRAL_MODELS) {
+    const modelStartTime = performance.now();
     try {
       console.log(`[${label}] Trying Mistral model: ${model}`);
       
@@ -207,13 +238,14 @@ async function callMistral(
         )
       ]);
       
-      console.log(`[${label}][${model}] Response received`);
+      const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+      console.log(`[${label}][${model}] Response received in ${duration}s`);
       
       // Extract content from Mistral response structure
       const raw = response?.choices?.[0]?.message?.content || '';
       
       if (!raw) {
-        console.warn(`[${label}][${model}] Empty response, trying next...`);
+        console.warn(`[${label}][${model}] Empty response after ${duration}s, trying next...`);
         lastError = new Error('Empty response');
         continue;
       }
@@ -229,23 +261,24 @@ async function callMistral(
           const rawText = typeof raw === 'string' ? raw : JSON.stringify(raw);
           return { data: extractJson(rawText), model };
         } catch (e2: any) {
-          console.warn(`[${label}][${model}] JSON extraction failed:`, e2.message);
+          console.warn(`[${label}][${model}] JSON extraction failed after ${duration}s:`, e2.message);
           lastError = new Error(`${label}: could not extract valid JSON from model response`);
           continue;
         }
       }
     } catch (err: any) {
-      console.error(`[${label}][${model}] Error:`, err?.message || err);
+      const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+      console.error(`[${label}][${model}] Error after ${duration}s:`, err?.message || err);
       const msg = err?.message || '';
-      const skip = err?.statusCode === 429 || msg.includes('429') || msg.includes('rate_limit') || msg === 'timeout';
+      const skip = err?.statusCode === 429 || msg.includes('429') || msg.includes('rate_limit') || msg === 'timeout' || msg.includes('aborted');
       if (skip) {
-        console.warn(`[${label}] ${model} skipped (${msg.includes('rate_limit') || err?.statusCode === 429 ? 'rate-limit' : 'timeout'}), trying next...`);
+        console.warn(`[${label}] ${model} skipped after ${duration}s (${msg.includes('rate_limit') || err?.statusCode === 429 ? 'rate-limit' : 'timeout'}), trying next...`);
         lastError = err;
         continue;
       }
       // Don't throw on connection errors, try next model
       if (msg.includes('fetch failed') || msg.includes('ConnectionError') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) {
-        console.warn(`[${label}] ${model} connection failed, trying next...`);
+        console.warn(`[${label}] ${model} connection failed after ${duration}s, trying next...`);
         lastError = err;
         continue;
       }
@@ -273,12 +306,14 @@ async function callGroq(
   system: string,
   userMsg: string,
   label: string,
-  timeoutMs: number = 30000,
+  timeoutMs: number = 120000,
   maxTokens: number = 4096
 ): Promise<{ data: any; model: string }> {
   let lastError: any;
   for (const model of GROQ_MODELS) {
+    const modelStartTime = performance.now();
     try {
+      console.log(`[${label}] Trying Groq model: ${model}`);
       const completion = await Promise.race([
         groq.chat.completions.create({
           messages: [
@@ -293,21 +328,26 @@ async function callGroq(
           setTimeout(() => reject(new Error('timeout')), timeoutMs)
         )
       ]);
+      const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
       const raw = (completion as any).choices[0]?.message?.content || '';
       try {
-        return { data: extractJson(raw), model };
+        const parsed = extractJson(raw);
+        console.log(`[${label}][${model}] Success in ${duration}s`);
+        return { data: parsed, model };
       } catch (e: any) {
-        console.warn(`[${label}][${model}] JSON extraction failed, trying next model...`);
+        console.warn(`[${label}][${model}] JSON extraction failed after ${duration}s, trying next model...`);
         lastError = new Error(`${label}: could not extract valid JSON from model response`);
         continue;
       }
     } catch (err: any) {
+      const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+      console.error(`[${label}][${model}] Error after ${duration}s:`, err?.message || err);
       const msg = err?.message || '';
       const skip = err?.status === 429 || msg.includes('429') || msg.includes('rate_limit')
         || (err?.status === 400 && msg.includes('decommissioned'))
-        || msg === 'timeout';
+        || msg === 'timeout' || msg.includes('aborted');
       if (skip) {
-        console.warn(`[${label}] ${model} skipped (${msg.includes('rate_limit') || err?.status === 429 ? 'rate-limit' : msg === 'timeout' ? 'timeout' : 'decommissioned'}), trying next...`);
+        console.warn(`[${label}] ${model} skipped after ${duration}s (${msg.includes('rate_limit') || err?.status === 429 ? 'rate-limit' : msg === 'timeout' ? 'timeout' : 'decommissioned'}), trying next...`);
         lastError = err;
         continue;
       }
@@ -377,34 +417,94 @@ Required fields:
     "pros": array of strings (the conform points),
     "cons": array of strings (the points to improve)
   }
-- orthography_verdict: string (detailed qualitative feedback)
-- benchmark: object {tech, finance, consulting, marketing, rh_legal} (0-100)
-- grounding: object {top_strength, pourquoi_ignore, market_value} using {"text", "line"}
+import { NextResponse } from 'next/server';
+import { Mistral } from '@mistralai/mistralai';
+import Groq from 'groq-sdk';
 
-ATS STRUCTURE DETECTION:
-- Canva/Design CVs with columns ALWAYS fail ATS parsing - warn the user explicitly
-Output ONLY the raw JSON object. Do not add any explanation, markdown, or text outside the JSON.`;
+/**
+ * Global job store
+ */
+type AnalysisJob = {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: string;
+  result?: any;
+  error?: string;
+  createdAt: number;
+};
 
-    const cvTextLines = cleanCvText.split('\n');
-    const cvWithHeaderMarks = cvTextLines.map((line, idx) => 
-      idx < 10 ? `[HEADER: CONTACT INFO - DO NOT CITE FOR STRENGTHS] ${line}` : line
-    ).join('\n');
+const jobs = new Map<string, AnalysisJob>();
 
+function cleanupJobs() {
+  const now = Date.now();
+  for (const [id, job] of jobs.entries()) {
+    if (now - job.createdAt > 3600000) jobs.delete(id);
+  }
+}
+
+/**
+ * GET Handler for polling job status
+ */
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const jobId = searchParams.get('jobId');
+
+  if (!jobId) {
+    return NextResponse.json({ error: 'Missing jobId' }, { status: 400 });
+  }
+
+  const job = jobs.get(jobId);
+  if (!job) {
+    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  }
+
+  return NextResponse.json(job);
+}
+
+/**
+ * Background Analysis Function
+ */
+async function performAnalysis(jobId: string, params: {
+  cv_text: string,
+  job_desc: string,
+  api_key: string,
+  boost_mode: boolean,
+  lang: 'fr' | 'en',
+  ai_provider: AIProvider
+}) {
+  const job = jobs.get(jobId);
+  if (!job) return;
+
+  try {
+    job.status = 'processing';
+    job.progress = params.lang === 'en' ? 'Starting analysis...' : 'Démarrage de l\'analyse...';
+
+    const { cv_text, job_desc, api_key, boost_mode, lang, ai_provider } = params;
+    const provider = ai_provider || 'groq';
+    const apiKeyToUse = (api_key || (provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : process.env.GOOGLE_API_KEY))?.replace(/[^\x20-\x7E]/g, '').trim();
+
+    if (!apiKeyToUse) throw new Error('Missing API Key');
+
+    // 1. Audit Section
+    job.progress = lang === 'en' ? 'Step 1: Strategic Audit...' : 'Étape 1 : Audit Stratégique...';
+    
+    const sanitizedText = sanitizeCvText(cv_text);
+    const cvWithHeaderMarks = sanitizedText
+      .split('\n')
+      .map((line, i) => i < 40 ? `[HEADER_ZONE_L${i+1}] ${line}` : line)
+      .join('\n');
+
+    const system1 = `Senior Recruitment Auditor. Lang: ${lang}. Task: Strategic CV Audit & Extraction. Return raw JSON only.`;
     const prompt1 = `CV TEXT (Indexed):\n${cvWithHeaderMarks.substring(0, 6000)}\n\nJOB OFFER:\n${job_desc ? job_desc.substring(0, 3000) : 'Senior management — general analysis'}`;
     
     const agent1Result = provider === 'groq'
-      ? await callGroq(new Groq({ apiKey: apiKeyToUse }), system1, prompt1, 'Agent1-Audit', 35000, 4096)
+      ? await callGroq(new Groq({ apiKey: apiKeyToUse }), system1, prompt1, 'Agent1-Audit', 120000, 4096)
       : provider === 'mistral'
-      ? await callMistral(new Mistral({ apiKey: apiKeyToUse }), system1, prompt1, 'Agent1-Audit', 35000, 4096)
-      : await callGoogle(apiKeyToUse, system1, prompt1, 'Agent1-Audit', 35000);
+      ? await callMistral(new Mistral({ apiKey: apiKeyToUse, timeoutMs: 120000 }), system1, prompt1, 'Agent1-Audit', 120000, 4096)
+      : await callGoogle(apiKeyToUse, system1, prompt1, 'Agent1-Audit', 120000);
     
     const analysisData = agent1Result.data;
 
-    // ── AGENT 2: CV Rewrite ────────────────────────────────────────────────────────────────────────────
-    const missingKws = (analysisData.missing_keywords || []).slice(0, 8).join(', ');
-    const currentScore = analysisData.global_score || 0;
-
-    const system2 = boost_mode
       ? `You are an aggressive CV optimizer and career coach. Your goal: make this CV the strongest possible candidate for the target job.
 WRITE EVERYTHING IN ${outputLang.toUpperCase()} — including role titles, bullets, summary, skill category names, and education details. Translate any French content to ${outputLang}.
 
@@ -483,10 +583,10 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
 
     // Long-form generation: Boost timeout to 60s and tokens to 6000
     const agent2Result = provider === 'groq'
-      ? await callGroq(new Groq({ apiKey: apiKeyToUse }), system2, prompt2, 'Agent2-Rewrite', 65000, 6000)
+      ? await callGroq(new Groq({ apiKey: apiKeyToUse }), system2, prompt2, 'Agent2-Rewrite', 120000, 6000)
       : provider === 'mistral'
-      ? await callMistral(new Mistral({ apiKey: apiKeyToUse }), system2, prompt2, 'Agent2-Rewrite', 65000, 6000)
-      : await callGoogle(apiKeyToUse, system2, prompt2, 'Agent2-Rewrite', 65000);
+      ? await callMistral(new Mistral({ apiKey: apiKeyToUse, timeoutMs: 120000 }), system2, prompt2, 'Agent2-Rewrite', 120000, 6000)
+      : await callGoogle(apiKeyToUse, system2, prompt2, 'Agent2-Rewrite', 120000);
     
     const llmFields = agent2Result.data;
 

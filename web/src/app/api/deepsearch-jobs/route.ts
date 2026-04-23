@@ -110,11 +110,21 @@ Format:
 }
 If no matches, return exactly: {"matches": []}. Output ONLY JSON. No talk.`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: matchingPrompt }],
-      model: 'llama-3.3-70b-versatile',
-      temperature: 0.2,
-    });
+    const modelStartTime = performance.now();
+    const timeoutMs = 120000;
+    const chatCompletion = await Promise.race([
+      groq.chat.completions.create({
+        messages: [{ role: 'user', content: matchingPrompt }],
+        model: 'llama-3.3-70b-versatile',
+        temperature: 0.2,
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), timeoutMs)
+      )
+    ]);
+
+    const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
+    console.log(`[DEEPSEARCH-JOBS] Match completed in ${duration}s`);
 
     const content = chatCompletion.choices[0]?.message?.content || "";
     const data = extractJson(content);
