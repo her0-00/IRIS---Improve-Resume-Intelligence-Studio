@@ -152,7 +152,7 @@ No preamble. No markdown code blocks. Just raw JSON.`;
           const duration = ((performance.now() - modelStartTime) / 1000).toFixed(1);
           console.error(`[BRAND-COLORS][${model}] Error after ${duration}s:`, err?.message || err);
           lastError = err;
-          if (err.status === 429 || err.message === 'timeout' || err.message.includes('aborted')) {
+          if (err.status === 429 || err.message === 'timeout' || err.message.includes('aborted') || err.message.includes('high demand') || (err.status >= 500 && err.status <= 504)) {
             console.warn(`[BRAND-COLORS] Groq ${model} failed (${err.message}), trying next...`);
             continue;
           }
@@ -194,7 +194,7 @@ No preamble. No markdown code blocks. Just raw JSON.`;
           console.error(`[BRAND-COLORS][${model}] Error after ${duration}s:`, err?.message || err);
           lastError = err;
           const msg = err?.message || '';
-          if (err?.statusCode === 429 || msg.includes('rate_limit') || msg === 'timeout' || msg.includes('aborted')) {
+          if (err?.statusCode === 429 || msg.includes('rate_limit') || msg === 'timeout' || msg.includes('aborted') || msg.includes('high demand') || (err?.statusCode >= 500 && err?.statusCode <= 504)) {
             console.warn(`[BRAND-COLORS] Mistral ${model} failed (${msg}), trying next...`);
             continue;
           }
@@ -243,7 +243,7 @@ No preamble. No markdown code blocks. Just raw JSON.`;
           console.error(`[BRAND-COLORS][${modelName}] Error after ${duration}s:`, err?.message || err);
           lastError = err;
           const msg = err?.message || '';
-          if (msg.includes('quota') || msg.includes('429') || msg === 'timeout' || msg.includes('aborted')) {
+          if (msg.includes('quota') || msg.includes('429') || msg === 'timeout' || msg.includes('aborted') || msg.includes('high demand') || msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
             console.warn(`[BRAND-COLORS] Google ${modelName} failed (${msg}), trying next...`);
             continue;
           }
