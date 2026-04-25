@@ -418,7 +418,7 @@ export default function OnboardingTour() {
       top = Math.max(10, Math.min(viewH - 230, top));
     } else {
       top = rect.top + rect.height / 2 - 120;
-      left = rect.right + PAD + 60;
+      left = rect.left + rect.width + PAD + 60;
       if (left + tooltipW > viewW - 20) left = rect.left - tooltipW - PAD - 60;
       if (top + 320 > viewH) top = viewH - 340;
       if (top < 20) top = 20;
