@@ -182,6 +182,7 @@ export default function OnboardingTour() {
   const [waiting, setWaiting] = useState(false);
   const [activeGuide, setActiveGuide] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const hasScrolledForStep = useRef<number>(-1);
 
   useEffect(() => {
     try {
@@ -198,6 +199,7 @@ export default function OnboardingTour() {
       setShow(true);
       setActive(false);
       setStep(0);
+      hasScrolledForStep.current = -1;
     };
   }, []);
 
@@ -218,8 +220,11 @@ export default function OnboardingTour() {
         }
         
         if (el) {
-            // iOS specific: scrollIntoView on the element itself handles nested horizontal scroll (like tabs)
-            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            // ONLY scroll once per step to avoid the "sliding/gliding" jitter bug on iOS
+            if (hasScrolledForStep.current !== step) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                hasScrolledForStep.current = step;
+            }
 
             const measure = () => {
                 if (el) {
@@ -227,12 +232,12 @@ export default function OnboardingTour() {
                     setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
                 }
             };
-            setTimeout(measure, 300);
-            setTimeout(measure, 800);
-            setTimeout(measure, 1500);
-        } else if (attempts < 30) {
+            // Throttled measurements
+            setTimeout(measure, 400);
+            setTimeout(measure, 1000);
+        } else if (attempts < 20) {
             attempts++;
-            setTimeout(find, 300);
+            setTimeout(find, 500);
         }
     };
     find();
@@ -251,7 +256,6 @@ export default function OnboardingTour() {
         try {
             const tabByTour = document.querySelector(`[data-tour="${selectorOrText}"]`) as HTMLElement;
             if (tabByTour) {
-                // Before clicking, scroll the tab into its own container for iOS
                 tabByTour.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 tabByTour.click();
                 return;
@@ -467,11 +471,6 @@ export default function OnboardingTour() {
                 id="google" title="🔷 GEMINI (Gratuit)" 
                 steps={['Ouvre Google AI Studio', 'Clique sur "Get API key"', 'Copie-la dans la barre latérale']}
                 link="https://aistudio.google.com/app/apikey" format="AIzaSy..." 
-              />
-              <ApiGuide 
-                id="mistral" title="🌊 MISTRAL (IA Française - Gratuit)" 
-                steps={['Ouvre Mistral Console', 'Va dans "API Keys"', 'Copie-la dans la barre latérale']}
-                link="https://console.mistral.ai/api-keys/" format="xxxxx..." 
               />
             </div>
 
