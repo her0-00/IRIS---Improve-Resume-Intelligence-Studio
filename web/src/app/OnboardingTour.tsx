@@ -153,11 +153,17 @@ const STEPS: TourStep[] = [
     position: 'bottom',
   },
   {
-    target: '[data-tour="privacy-shield-header"]',
-    title: '🛡️ Privacy Shield (Zero-Trust)',
-    desc: 'Enfin, IRIS protège ta vie privée. Tes clés API et ton CV sont stockés localement. Aucune donnée personnelle n\'est conservée sur nos serveurs. AES-256 & TLS 1.3 garantis.',
+    target: '[data-tour="compare-tab"]',
+    title: '🛡️ Onglet Privacy',
+    desc: 'Enfin, vérifions la sécurité de tes données dans l\'onglet Privacy.',
     position: 'bottom',
     action: 'switchToCompareTab',
+  },
+  {
+    target: '[data-tour="privacy-shield-header"]',
+    title: '🛡️ Privacy Shield (Zero-Trust)',
+    desc: 'IRIS protège ta vie privée. Tes clés API et ton CV sont stockés localement. Aucune donnée personnelle n\'est conservée sur nos serveurs. AES-256 & TLS 1.3 garantis.',
+    position: 'bottom',
   },
   {
     target: '[data-tour="reset-tour"]',
@@ -172,7 +178,7 @@ export default function OnboardingTour() {
   const [show, setShow] = useState(false);
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
-  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [rect, setRect] = useState<{top:number, left:number, width:number, height:number} | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [activeGuide, setActiveGuide] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -204,27 +210,29 @@ export default function OnboardingTour() {
         const elements = selector.split(',').map(s => s.trim());
         let el: HTMLElement | null = null;
         for (const s of elements) {
-            const found = Array.from(document.querySelectorAll(s)).find(e => (e as HTMLElement).offsetParent !== null) as HTMLElement;
+            const found = Array.from(document.querySelectorAll(s)).find(e => {
+                const style = window.getComputedStyle(e);
+                return style.display !== 'none' && style.visibility !== 'hidden' && (e as HTMLElement).offsetParent !== null;
+            }) as HTMLElement;
             if (found) { el = found; break; }
         }
         
         if (el) {
-            const bodyRect = document.body.getBoundingClientRect();
-            const elemRect = el.getBoundingClientRect();
-            const offsetTop = elemRect.top - bodyRect.top;
-            
-            window.scrollTo({
-                top: offsetTop - (window.innerHeight / 2) + (elemRect.height / 2),
-                behavior: 'smooth'
-            });
+            // iOS specific: scrollIntoView on the element itself handles nested horizontal scroll (like tabs)
+            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
 
             const measure = () => {
-                if (el) setRect(el.getBoundingClientRect());
+                if (el) {
+                    const r = el.getBoundingClientRect();
+                    setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+                }
             };
-            [100, 300, 600, 1000, 1500, 2000].forEach(ms => setTimeout(measure, ms));
-        } else if (attempts < 60) {
+            setTimeout(measure, 300);
+            setTimeout(measure, 800);
+            setTimeout(measure, 1500);
+        } else if (attempts < 30) {
             attempts++;
-            setTimeout(find, 250);
+            setTimeout(find, 300);
         }
     };
     find();
@@ -243,12 +251,17 @@ export default function OnboardingTour() {
         try {
             const tabByTour = document.querySelector(`[data-tour="${selectorOrText}"]`) as HTMLElement;
             if (tabByTour) {
+                // Before clicking, scroll the tab into its own container for iOS
+                tabByTour.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
                 tabByTour.click();
                 return;
             }
             const tabs = Array.from(document.querySelectorAll('.tab')) as HTMLElement[];
             const tab = tabs.find(el => el.textContent?.toLowerCase().includes(selectorOrText.toLowerCase()));
-            if (tab) tab.click();
+            if (tab) {
+                tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                tab.click();
+            }
         } catch (e) { }
     };
 
@@ -345,11 +358,15 @@ export default function OnboardingTour() {
 
     runAction();
     
-    window.addEventListener('resize', updateRect);
-    window.addEventListener('scroll', updateRect, true);
+    let resizeTimer: any;
+    const onResize = () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(updateRect, 200);
+    };
+    
+    window.addEventListener('resize', onResize);
     return () => {
-      window.removeEventListener('resize', updateRect);
-      window.removeEventListener('scroll', updateRect, true);
+      window.removeEventListener('resize', onResize);
     };
   }, [active, step, updateRect]);
 
@@ -376,7 +393,13 @@ export default function OnboardingTour() {
 
   const tooltipStyle = (): React.CSSProperties => {
     if (!rect) return { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' };
-    const base: React.CSSProperties = { position: 'fixed', width: tooltipW, zIndex: 10001, transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)' };
+    const base: React.CSSProperties = { 
+        position: 'fixed', 
+        width: tooltipW, 
+        zIndex: 10001, 
+        transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        pointerEvents: 'all'
+    };
     const viewH = window.innerHeight;
     const viewW = window.innerWidth;
     const isMobile = viewW <= 768;
@@ -385,9 +408,10 @@ export default function OnboardingTour() {
     let left: number;
 
     if (isMobile) {
-      top = rect.bottom + PAD + 12;
-      left = Math.max(10, Math.min(viewW - tooltipW - 10, viewW / 2 - tooltipW / 2));
-      if (top + 250 > viewH) top = Math.max(10, rect.top - 250 - PAD);
+      left = (viewW - tooltipW) / 2;
+      top = rect.top + rect.height + PAD + 10;
+      if (top + 220 > viewH) top = rect.top - 220 - PAD;
+      top = Math.max(10, Math.min(viewH - 230, top));
     } else {
       top = rect.top + rect.height / 2 - 120;
       left = rect.right + PAD + 60;
@@ -425,35 +449,35 @@ export default function OnboardingTour() {
     <>
       {show && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(5,6,10,0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="animate-in" style={{ background: 'var(--card)', border: '1px solid var(--gold)', borderRadius: 24, padding: '2.5rem', maxWidth: 600, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 0 80px rgba(212,168,83,0.2)', textAlign: 'center' }}>
+          <div className="animate-in" style={{ background: 'var(--card)', border: '1px solid var(--gold)', borderRadius: 24, padding: '2rem', maxWidth: 600, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 0 80px rgba(212,168,83,0.2)', textAlign: 'center' }}>
             <div style={{ width: 64, height: 64, margin: '0 auto 1.5rem', background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', boxShadow: '0 0 20px var(--gold-glow)' }}>⧡</div>
-            <h2 style={{ fontSize: '1.8rem', marginBottom: '0.8rem', fontWeight: 900 }}>Besoin d'un coup de pouce ?</h2>
-            <p style={{ color: 'var(--text2)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '2rem' }}>
-              IRIS est un outil gratuit conçu pour t'aider à mieux comprendre comment ton CV est lu par les entreprises. On va t'aider à l'optimiser simplement.
+            <h2 style={{ fontSize: '1.6rem', marginBottom: '0.8rem', fontWeight: 900 }}>Besoin d'un coup de pouce ?</h2>
+            <p style={{ color: 'var(--text2)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              IRIS est un outil gratuit conçu pour t'aider à mieux comprendre comment ton CV est lu par les entreprises.
             </p>
 
-            <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
-              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text3)', marginBottom: '12px', fontWeight: 700 }}>🛠️ Configuration des Clés API</div>
+            <div style={{ textAlign: 'left', marginBottom: '1.5rem' }}>
+              <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text3)', marginBottom: '12px', fontWeight: 700 }}>🛠️ Configuration des Clés API</div>
               <ApiGuide 
-                id="groq" title="⚡ GROQ (Le plus rapide - Gratuit)" 
-                steps={['Ouvre Groq Cloud', 'Connecte-toi', 'Crée une clé dans "API Keys"', 'Copie-la dans la barre latérale']}
+                id="groq" title="⚡ GROQ (Rapide - Gratuit)" 
+                steps={['Ouvre Groq Cloud', 'Crée une clé dans "API Keys"', 'Copie-la dans la barre latérale']}
                 link="https://console.groq.com/keys" format="gsk_xxxx..." 
               />
               <ApiGuide 
-                id="google" title="🔷 GOOGLE AI (Gemini - Gratuit)" 
+                id="google" title="🔷 GEMINI (Gratuit)" 
                 steps={['Ouvre Google AI Studio', 'Clique sur "Get API key"', 'Copie-la dans la barre latérale']}
                 link="https://aistudio.google.com/app/apikey" format="AIzaSy..." 
               />
               <ApiGuide 
-                id="mistral" title="🌊 MISTRAL AI (IA Française - Gratuit)" 
+                id="mistral" title="🌊 MISTRAL (IA Française - Gratuit)" 
                 steps={['Ouvre Mistral Console', 'Va dans "API Keys"', 'Copie-la dans la barre latérale']}
                 link="https://console.mistral.ai/api-keys/" format="xxxxx..." 
               />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <button onClick={startDemo} style={{ background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', color: '#000', border: 'none', borderRadius: '12px', padding: '1.2rem', fontFamily: 'Space Mono, monospace', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 25px rgba(212, 168, 83, 0.5)' }}>🚀 DÉMARRER LA DÉMO COMPLÈTE</button>
-              <button onClick={skip} style={{ background: 'transparent', color: 'var(--text3)', border: 'none', padding: '0.5rem', fontSize: '0.65rem', cursor: 'pointer' }}>Passer la visite</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button onClick={startDemo} style={{ background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', color: '#000', border: 'none', borderRadius: '12px', padding: '1rem', fontFamily: 'Space Mono, monospace', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}>🚀 DÉMARRER LA DÉMO</button>
+              <button onClick={skip} style={{ background: 'transparent', color: 'var(--text3)', border: 'none', padding: '0.5rem', fontSize: '0.6rem', cursor: 'pointer' }}>Passer la visite</button>
             </div>
           </div>
         </div>
@@ -461,26 +485,26 @@ export default function OnboardingTour() {
 
       {active && (
         <>
-          <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none' }}>
+          <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none', overflow: 'hidden' }}>
             {rect && (
-              <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-                <defs><mask id="hole"><rect width="100%" height="100%" fill="white" /><rect x={rect.left - PAD} y={rect.top - PAD} width={rect.width + PAD * 2} height={rect.height + PAD * 2} rx={12} fill="black" /></mask></defs>
+              <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                <defs><mask id="hole"><rect width="100%" height="100%" fill="white" /><rect style={{ transition: 'all 0.4s ease-out' }} x={rect.left - PAD} y={rect.top - PAD} width={rect.width + PAD * 2} height={rect.height + PAD * 2} rx={12} fill="black" /></mask></defs>
                 <rect width="100%" height="100%" fill="rgba(5,6,10,0.85)" mask="url(#hole)" />
-                <rect x={rect.left - PAD} y={rect.top - PAD} width={rect.width + PAD * 2} height={rect.height + PAD * 2} rx={12} fill="none" stroke="var(--gold)" strokeWidth={3} style={{ filter: 'drop-shadow(0 0 12px var(--gold-glow))' }} />
+                <rect style={{ transition: 'all 0.4s ease-out' }} x={rect.left - PAD} y={rect.top - PAD} width={rect.width + PAD * 2} height={rect.height + PAD * 2} rx={12} fill="none" stroke="var(--gold)" strokeWidth={3} />
               </svg>
             )}
           </div>
 
-          <div style={{ ...tooltipStyle(), background: 'var(--card)', border: '1px solid var(--gold)', borderRadius: 20, padding: '1.5rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', pointerEvents: 'all' }}>
-            <div style={{ display: 'flex', gap: 4, marginBottom: '1.2rem' }}>
-              {STEPS.map((_, i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? 'var(--gold)' : 'var(--border)', transition: 'background 0.3s' }} />)}
+          <div style={{ ...tooltipStyle(), background: 'var(--card)', border: '1px solid var(--gold)', borderRadius: 20, padding: '1.2rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', pointerEvents: 'all' }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: '1rem' }}>
+              {STEPS.map((_, i) => <div key={i} style={{ flex: 1, height: 3, borderRadius: 1.5, background: i <= step ? 'var(--gold)' : 'var(--border)', transition: 'background 0.3s' }} />)}
             </div>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.8rem', color: 'var(--text)', fontWeight: 800 }}>{STEPS[step].title}</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text2)', lineHeight: 1.6, marginBottom: '1.5rem' }}>{STEPS[step].desc}</p>
+            <h3 style={{ fontSize: '1rem', marginBottom: '0.6rem', color: 'var(--text)', fontWeight: 800 }}>{STEPS[step].title}</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text2)', lineHeight: 1.5, marginBottom: '1.2rem' }}>{STEPS[step].desc}</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button onClick={prev} disabled={step === 0 || waiting} style={{ background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.6rem 1.2rem', fontSize: '0.6rem', cursor: (step === 0 || waiting) ? 'not-allowed' : 'pointer', opacity: (step === 0 || waiting) ? 0.4 : 1 }}>← Préc.</button>
-              <button onClick={next} disabled={waiting} style={{ background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', color: '#000', border: 'none', borderRadius: 8, padding: '0.6rem 1.2rem', fontSize: '0.65rem', fontWeight: 800, cursor: waiting ? 'wait' : 'pointer' }}>
-                {waiting ? 'Chargement...' : step === STEPS.length - 1 ? 'C\'est parti !' : 'Suivant →'}
+              <button onClick={prev} disabled={step === 0 || waiting} style={{ background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.55rem', cursor: 'pointer', opacity: (step === 0 || waiting) ? 0.4 : 1 }}>← Préc.</button>
+              <button onClick={next} disabled={waiting} style={{ background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', color: '#000', border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontSize: '0.6rem', fontWeight: 800, cursor: waiting ? 'wait' : 'pointer' }}>
+                {waiting ? '...' : step === STEPS.length - 1 ? 'OK !' : 'Suivant →'}
               </button>
             </div>
           </div>
