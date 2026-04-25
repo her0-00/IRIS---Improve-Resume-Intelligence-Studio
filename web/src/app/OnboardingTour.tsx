@@ -2,74 +2,193 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 
-const STEPS = [
+type TourAction = 
+  | 'clickBoost' 
+  | 'switchToAuditTab' 
+  | 'switchToEditTab' 
+  | 'clickExecutiveTheme' 
+  | 'openCustomPanel'
+  | 'waitForPdf' 
+  | 'clickVisualEdit' 
+  | 'switchToJobTab' 
+  | 'triggerJobSearchAndWait' 
+  | 'switchToCompareTab';
+
+interface TourStep {
+  target: string;
+  title: string;
+  desc: string;
+  position: 'top' | 'bottom' | 'left' | 'right';
+  action?: TourAction;
+}
+
+const STEPS: TourStep[] = [
   {
     target: '.brand',
     title: 'Bienvenue sur IRIS ⧡',
-    desc: 'La plateforme tout-en-un : analysez votre CV avec l\'IA, optimisez-le pour les ATS, comparez-le aux systèmes ATS réels, exportez en 26 thèmes PDF premium et matchez avec des offres d\'emploi en temps réel.',
-    position: 'right' as const,
+    desc: 'Un outil simple pour t\'aider à améliorer ton CV. On va regarder ensemble comment l\'IA analyse ton profil pour les recruteurs.',
+    position: 'right',
+  },
+  {
+    target: '[data-tour="api-provider"]',
+    title: '🔑 1. Configuration IA',
+    desc: 'On commence par ta clé API. C\'est le moteur qui permet à l\'IA de réfléchir.',
+    position: 'right',
   },
   {
     target: '.file-drop',
-    title: '📄 1. Uploadez votre CV',
-    desc: 'Déposez votre CV PDF + collez une offre d\'emploi. L\'IA extrait, analyse votre score ATS 0-100 et réécrit votre CV pour maximiser vos chances. La clé Groq (gratuite) alimente toute l\'analyse.',
-    position: 'right' as const,
+    title: '📄 2. Ton CV & L\'Offre',
+    desc: 'Dépose ton CV et l\'offre d\'emploi ici. C\'est la base de toute l\'analyse.',
+    position: 'right',
   },
   {
-    target: '.kpis',
-    title: '📊 2. Audit ATS + Comparaison',
-    desc: 'Score global, keywords présents/manquants, insights psychologiques du recruteur, estimation salariale. Le Simulateur ATS compare votre CV aux systèmes réels : Greenhouse, Lever, Workday, SAP SuccessFactors...',
-    position: 'bottom' as const,
+    target: '[data-tour="boost"]',
+    title: '🚀 Mode Boost',
+    desc: 'Active ce mode pour une analyse ultra-profonde. C\'est indispensable pour un résultat pro.',
+    position: 'right',
+    action: 'clickBoost',
   },
   {
-    target: '.tabs',
-    title: '✏️ 3. Edit Content',
-    desc: 'Éditez votre CV structuré en JSON. Auto-sauvegarde après 3 min d\'inactivité. Erreurs de syntaxe signalées en temps réel. Utilisez "Save & Export" pour forcer la génération immédiate.',
-    position: 'bottom' as const,
+    target: '[data-tour="launch-audit"]',
+    title: '⬡ Lancement de l\'Audit',
+    desc: 'C\'est ici qu\'on lance la machine. En cliquant, IRIS analyse tout instantanément.',
+    position: 'right',
+  },
+  {
+    target: '[data-tour="audit-tab"]',
+    title: '📊 Onglet Audit',
+    desc: 'Cliquons sur l\'onglet Audit pour voir les résultats de l\'analyse.',
+    position: 'bottom',
+    action: 'switchToAuditTab',
+  },
+  {
+    target: '[data-tour="market-verdict"]',
+    title: '⚖️ Verdict du Marché',
+    desc: 'Voici ton score d\'employabilité. C\'est ce que voient les recruteurs en premier.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="semantic-audit"]',
+    title: '🔍 Analyse Sémantique',
+    desc: 'Regarde : IRIS identifie les mots-clés qui manquent pour matcher l\'offre.',
+    position: 'top',
+  },
+  {
+    target: '[data-tour="edit-tab"]',
+    title: '✏️ Onglet Content',
+    desc: 'Passons à l\'onglet Content pour voir comment IRIS a structuré tes données.',
+    position: 'bottom',
+    action: 'switchToEditTab',
+  },
+  {
+    target: '.input-field.mono',
+    title: '✏️ Édition (Content)',
+    desc: 'Modifie ton CV ici. Le format JSON garantit une structure parfaite pour les robots.',
+    position: 'top',
   },
   {
     target: '[data-tour="pdf-tab"]',
-    title: '🎨 4. CV PDF Export',
-    desc: '26 thèmes premium (16 Standard + 10 ATS-Optimized). Personnalisez couleurs, polices, taille. Brand Accent, détails formations, catégories compétences en gras — tout s\'intègre automatiquement.',
-    position: 'bottom' as const,
-    action: 'switchToPdfTab' as const,
+    title: '🎨 Onglet PDF Export',
+    desc: 'Cliquons sur l\'export PDF pour voir ton nouveau CV stylisé.',
+    position: 'bottom',
+    action: 'clickExecutiveTheme',
   },
   {
-    target: '.tabs',
-    title: '💼 5. Smart Job Matcher',
-    desc: 'Connectez Adzuna (clé gratuite) pour trouver les offres qui matchent votre profil. Filtre géo strict, tags sémantiques éditables, scoring basé sur vos compétences CV — sans consommer de tokens IA.',
-    position: 'bottom' as const,
-    action: 'switchToJobTab' as const,
+    target: '[data-tour="theme-executive"]',
+    title: '🎨 Design & Thèmes',
+    desc: 'IRIS a sélectionné le thème "Executive". Tu peux changer le style de ton CV immédiatement.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="customization-body"]',
+    title: '✨ Personnalisation Avancée',
+    desc: 'Voici les réglages de design. Tu peux tout changer : couleurs, police, et même demander à l\'IA de copier le style d\'une marque !',
+    position: 'top',
+    action: 'openCustomPanel',
+  },
+  {
+    target: '#pdf-preview-container, #pdf-iframe, [data-tour="pdf-placeholder"]',
+    title: '✨ CV Généré !',
+    desc: 'Regarde ici : ton nouveau CV est là. Design pro, structure ATS, prêt à l\'envoi.',
+    position: 'left',
+    action: 'waitForPdf',
+  },
+  {
+    target: '[data-tour="visual-edit-toggle"]',
+    title: '✏️ Édition Visuelle',
+    desc: 'C\'est la partie magique ! Clique ici pour modifier ton CV directement sur l\'aperçu.',
+    position: 'top',
+    action: 'clickVisualEdit',
+  },
+  {
+    target: '.simple-pdf-editor',
+    title: '🛠️ Modifie en Direct',
+    desc: 'Ici, tu peux changer ton texte, tes dates ou tes expériences. Le PDF se met à jour tout seul !',
+    position: 'left',
+  },
+  {
+    target: '[data-tour="jobs-tab"]',
+    title: '💼 Onglet Jobs',
+    desc: 'Cliquons sur l\'onglet Jobs pour trouver des offres qui te correspondent.',
+    position: 'bottom',
+    action: 'switchToJobTab',
+  },
+  {
+    target: '[data-tour="job-search-btn"]',
+    title: '💼 Recherche d\'Emploi',
+    desc: 'Cliquons sur "Auto-Match" pour lancer une recherche réelle d\'offres.',
+    position: 'top',
+  },
+  {
+    target: '.animate-in.card',
+    title: '🎯 Opportunités Réelles',
+    desc: 'Recherche terminée ! Voilà les offres sur la carte avec ton score de correspondance.',
+    position: 'top',
+    action: 'triggerJobSearchAndWait',
+  },
+  {
+    target: '[data-tour="job-map"]',
+    title: '🗺️ Géolocalisation SIG',
+    desc: 'Toutes les offres sont cartographiées. Tu peux voir les opportunités autour de toi en un coup d\'œil.',
+    position: 'bottom',
+  },
+  {
+    target: '[data-tour="privacy-shield-header"]',
+    title: '🛡️ Privacy Shield (Zero-Trust)',
+    desc: 'Enfin, IRIS protège ta vie privée. Tes clés API et ton CV sont stockés localement. Aucune donnée personnelle n\'est conservée sur nos serveurs. AES-256 & TLS 1.3 garantis.',
+    position: 'bottom',
+    action: 'switchToCompareTab',
+  },
+  {
+    target: '[data-tour="reset-tour"]',
+    title: '🚀 C\'est à toi !',
+    desc: 'Bonne chance ! Si tu as un doute, le guide est toujours là (?).',
+    position: 'right',
+    action: 'switchToAuditTab',
   },
 ];
-
-function getRect(selector: string) {
-  const el = document.querySelector(selector);
-  if (!el) return null;
-  return el.getBoundingClientRect();
-}
 
 export default function OnboardingTour() {
   const [show, setShow] = useState(false);
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const [showDemoOption, setShowDemoOption] = useState(false);
+  const [waiting, setWaiting] = useState(false);
+  const [activeGuide, setActiveGuide] = useState<string | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
-      const done = localStorage.getItem('IRIS_tour_done');
-      if (!done) setTimeout(() => setShow(true), 600);
+      const done = localStorage.getItem('IRIS_tour_done_v15');
+      if (!done) setTimeout(() => setShow(true), 1000);
     } catch {
-      setTimeout(() => setShow(true), 600);
+      setTimeout(() => setShow(true), 1000);
     }
   }, []);
 
-  // Expose reset for dev — remove in prod if needed
   useEffect(() => {
     (window as any).__resetTour = () => {
-      localStorage.removeItem('IRIS_tour_done');
+      localStorage.removeItem('IRIS_tour_done_v15');
       setShow(true);
       setActive(false);
       setStep(0);
@@ -77,297 +196,291 @@ export default function OnboardingTour() {
   }, []);
 
   const updateRect = useCallback(() => {
-    const el = document.querySelector(STEPS[step].target);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    // Wait for scroll and potential tab transitions to finish before measuring
-    setTimeout(() => {
-      const r = el.getBoundingClientRect();
-      setRect(r);
-    }, 800); // Increased delay for smoother stabilization
+    const selector = STEPS[step]?.target;
+    if (!selector) return;
+    
+    let attempts = 0;
+    const find = () => {
+        const elements = selector.split(',').map(s => s.trim());
+        let el: HTMLElement | null = null;
+        for (const s of elements) {
+            const found = Array.from(document.querySelectorAll(s)).find(e => (e as HTMLElement).offsetParent !== null) as HTMLElement;
+            if (found) { el = found; break; }
+        }
+        
+        if (el) {
+            const bodyRect = document.body.getBoundingClientRect();
+            const elemRect = el.getBoundingClientRect();
+            const offsetTop = elemRect.top - bodyRect.top;
+            
+            window.scrollTo({
+                top: offsetTop - (window.innerHeight / 2) + (elemRect.height / 2),
+                behavior: 'smooth'
+            });
+
+            const measure = () => {
+                if (el) setRect(el.getBoundingClientRect());
+            };
+            [100, 300, 600, 1000, 1500, 2000].forEach(ms => setTimeout(measure, ms));
+        } else if (attempts < 60) {
+            attempts++;
+            setTimeout(find, 250);
+        }
+    };
+    find();
   }, [step]);
 
   useEffect(() => {
-    if (!active) return;
-    
-    // Execute action for current step after a delay
-    const currentStep = STEPS[step];
-    let actionTimeout: NodeJS.Timeout;
-    
-    if (currentStep.action === 'switchToPdfTab') {
-      actionTimeout = setTimeout(() => {
-        try {
-          const pdfTab = Array.from(document.querySelectorAll('.tab')).find(
-            el => el.textContent?.includes('PDF Export')
-          ) as HTMLElement;
-          if (pdfTab) pdfTab.click();
-        } catch (e) { console.log('Could not switch tab:', e); }
-      }, 800);
-    } else if (currentStep.action === 'switchToJobTab') {
-      actionTimeout = setTimeout(() => {
-        try {
-          const jobTab = Array.from(document.querySelectorAll('.tab')).find(
-            el => el.textContent?.includes('Job') || el.textContent?.includes('Match')
-          ) as HTMLElement;
-          if (jobTab) jobTab.click();
-        } catch (e) { console.log('Could not switch to job tab:', e); }
-      }, 800);
-    } else if (currentStep.action === 'generatePdf') {
-      actionTimeout = setTimeout(() => {
-        try {
-          const generateBtn = Array.from(document.querySelectorAll('.btn-primary')).find(
-            el => el.textContent?.includes('GENERATE PDF')
-          ) as HTMLElement;
-          if (generateBtn) generateBtn.click();
-        } catch (e) {
-          console.log('Could not generate PDF:', e);
-        }
-      }, 800);
+    if (!active) {
+        (window as any).__isTourActive = false;
+        return;
     }
+    (window as any).__isTourActive = true;
     
-    updateRect();
+    const currentStep = STEPS[step];
+    
+    const clickTab = (selectorOrText: string) => {
+        try {
+            const tabByTour = document.querySelector(`[data-tour="${selectorOrText}"]`) as HTMLElement;
+            if (tabByTour) {
+                tabByTour.click();
+                return;
+            }
+            const tabs = Array.from(document.querySelectorAll('.tab')) as HTMLElement[];
+            const tab = tabs.find(el => el.textContent?.toLowerCase().includes(selectorOrText.toLowerCase()));
+            if (tab) tab.click();
+        } catch (e) { }
+    };
+
+    const runAction = async () => {
+        if (!currentStep.action) {
+            setTimeout(updateRect, 400);
+            return;
+        }
+
+        if (currentStep.action === 'waitForPdf' || currentStep.action === 'clickVisualEdit' || currentStep.action === 'openCustomPanel') {
+            clickTab('pdf-tab');
+        } else if (currentStep.action === 'switchToJobTab') {
+            clickTab('jobs-tab');
+        } else if (currentStep.action === 'switchToCompareTab') {
+            clickTab('compare-tab');
+        } else if (currentStep.action === 'switchToAuditTab') {
+            clickTab('audit-tab');
+        } else if (currentStep.action === 'switchToEditTab') {
+            clickTab('edit-tab');
+        } else if (currentStep.action === 'clickBoost') {
+            const boost = document.querySelector('[data-tour="boost"]') as HTMLElement;
+            if (boost) boost.click();
+        }
+
+        if (currentStep.action === 'clickExecutiveTheme') {
+            clickTab('pdf-tab');
+            setTimeout(() => {
+                const theme = document.querySelector('[data-tour="theme-executive"]') as HTMLElement;
+                if (theme) theme.click();
+            }, 800);
+        } else if (currentStep.action === 'openCustomPanel') {
+            clickTab('pdf-tab');
+            setTimeout(() => {
+                const panel = document.querySelector('[data-tour="customization"]') as HTMLElement;
+                const header = document.querySelector('[data-tour="customization-header"]') as HTMLElement;
+                const isOpen = panel?.getAttribute('data-open') === 'true';
+                if (header && !isOpen) {
+                    header.click();
+                }
+                setTimeout(updateRect, 400);
+            }, 800);
+        } else if (currentStep.action === 'clickVisualEdit') {
+            clickTab('pdf-tab');
+            setTimeout(() => {
+                const btn = document.querySelector('[data-tour="visual-edit-toggle"]') as HTMLElement;
+                if (btn) btn.click();
+                setTimeout(updateRect, 800);
+            }, 800);
+        } else if (currentStep.action === 'triggerJobSearchAndWait') {
+            clickTab('jobs-tab');
+            setWaiting(true);
+            const btn = document.querySelector('[data-tour="job-search-btn"]') as HTMLElement;
+            if (btn) btn.click();
+            
+            const check = setInterval(() => {
+                const card = document.querySelector('.animate-in.card');
+                const empty = document.querySelector('.empty, .no-results');
+                if (card || empty) {
+                    clearInterval(check);
+                    setWaiting(false);
+                    setTimeout(updateRect, 500);
+                }
+            }, 800);
+            
+            setTimeout(() => { setWaiting(false); clearInterval(check); }, 15000);
+            return;
+        } else if (currentStep.action === 'waitForPdf') {
+            const alreadyThere = document.querySelector('#pdf-iframe');
+            if (alreadyThere) {
+                setTimeout(updateRect, 400);
+                return;
+            }
+            
+            setWaiting(true);
+            const check = setInterval(() => {
+                const preview = document.querySelector('#pdf-iframe');
+                if (preview) {
+                    clearInterval(check);
+                    setWaiting(false);
+                    setTimeout(updateRect, 800);
+                }
+            }, 500);
+            
+            setTimeout(() => { 
+                setWaiting(false); 
+                clearInterval(check);
+                updateRect();
+            }, 8000);
+            return;
+        }
+        
+        setTimeout(updateRect, 400);
+    };
+
+    runAction();
+    
     window.addEventListener('resize', updateRect);
-    
+    window.addEventListener('scroll', updateRect, true);
     return () => {
       window.removeEventListener('resize', updateRect);
-      if (actionTimeout) clearTimeout(actionTimeout);
+      window.removeEventListener('scroll', updateRect, true);
     };
   }, [active, step, updateRect]);
 
-  const startTour = () => { setShow(false); setActive(true); setStep(0); };
   const startDemo = () => {
     setShow(false);
-    // Charge le 1er exemple de CV pour la démo
     setTimeout(() => {
       const exampleBtn = document.querySelector('.example-cv-btn') as HTMLButtonElement;
       if (exampleBtn) exampleBtn.click();
-      // Démarre le tour après chargement
-      setTimeout(() => { setActive(true); setStep(0); }, 1500);
+      setTimeout(() => { setActive(true); setStep(0); }, 1000);
     }, 300);
   };
-  const skip = () => { setShow(false); localStorage.setItem('IRIS_tour_done', '1'); };
+
+  const skip = () => { setShow(false); localStorage.setItem('IRIS_tour_done_v15', '1'); };
   const next = () => {
-    if (step < STEPS.length - 1) {
-      setStep(s => s + 1);
-    } else {
-      finish();
-    }
+    if (waiting) return;
+    if (step < STEPS.length - 1) setStep(s => s + 1);
+    else finish();
   };
   const prev = () => { if (step > 0) setStep(s => s - 1); };
-  const finish = () => { setActive(false); localStorage.setItem('IRIS_tour_done', '1'); };
+  const finish = () => { setActive(false); (window as any).__isTourActive = false; localStorage.setItem('IRIS_tour_done_v15', '1'); };
 
-  const PAD = 8;
-  const tooltipW = typeof window !== 'undefined' && window.innerWidth <= 768
-    ? Math.min(window.innerWidth - 40, 300)
-    : 320;
+  const PAD = 10;
+  const tooltipW = typeof window !== 'undefined' && window.innerWidth <= 768 ? Math.min(window.innerWidth - 40, 320) : 340;
 
   const tooltipStyle = (): React.CSSProperties => {
     if (!rect) return { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)' };
-    const base: React.CSSProperties = { position: 'fixed', width: tooltipW, zIndex: 10001 };
+    const base: React.CSSProperties = { position: 'fixed', width: tooltipW, zIndex: 10001, transition: 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)' };
     const viewH = window.innerHeight;
     const viewW = window.innerWidth;
     const isMobile = viewW <= 768;
-    const isSmallMobile = viewW <= 480;
 
     let top: number;
     let left: number;
 
     if (isMobile) {
-      // On mobile always show tooltip below the highlighted element, centered
       top = rect.bottom + PAD + 12;
       left = Math.max(10, Math.min(viewW - tooltipW - 10, viewW / 2 - tooltipW / 2));
-      // If it goes off bottom, show above
-      const tooltipHeight = isSmallMobile ? 280 : 240;
-      if (top + tooltipHeight > viewH - 10) {
-        top = Math.max(10, rect.top - tooltipHeight - PAD - 12);
-      }
-      // If still off screen, center it
-      if (top < 10 || top + tooltipHeight > viewH - 10) {
-        top = Math.max(10, (viewH - tooltipHeight) / 2);
-      }
+      if (top + 250 > viewH) top = Math.max(10, rect.top - 250 - PAD);
     } else {
-      top = rect.top + rect.height / 2 - 80;
-      left = rect.right + PAD + 12;
-      // If tooltip goes off right edge, put it on the left
-      if (left + tooltipW > viewW - 10) left = rect.left - tooltipW - PAD - 12;
-      // Clamp vertically
-      const tooltipH = 240;
-      if (top + tooltipH > viewH - 10) top = viewH - tooltipH - 10;
-      if (top < 10) top = 10;
+      top = rect.top + rect.height / 2 - 120;
+      left = rect.right + PAD + 60;
+      if (left + tooltipW > viewW - 20) left = rect.left - tooltipW - PAD - 60;
+      if (top + 320 > viewH) top = viewH - 340;
+      if (top < 20) top = 20;
     }
 
     return { ...base, left, top };
   };
 
+  const ApiGuide = ({ id, title, steps, link, format }: any) => (
+    <div style={{ marginBottom: '10px', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden' }}>
+      <button 
+        onClick={() => setActiveGuide(activeGuide === id ? null : id)}
+        style={{ width: '100%', padding: '12px 16px', background: 'var(--card)', border: 'none', color: 'var(--text)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontFamily: 'Space Mono, monospace', fontSize: '0.7rem' }}
+      >
+        <span>{title}</span>
+        <span>{activeGuide === id ? '−' : '+'}</span>
+      </button>
+      {activeGuide === id && (
+        <div style={{ padding: '16px', background: 'rgba(0,0,0,0.1)', fontSize: '0.75rem', textAlign: 'left', lineHeight: '1.5' }}>
+          <div style={{ color: 'var(--gold)', marginBottom: '8px', fontWeight: 600 }}>Étapes à suivre :</div>
+          {steps.map((s: string, i: number) => <div key={i} style={{ marginBottom: '4px' }}>{i + 1}. {s}</div>)}
+          <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text3)' }}>Format : <code style={{ color: 'var(--cyan)' }}>{format}</code></div>
+            <a href={link} target="_blank" rel="noopener" style={{ display: 'inline-block', marginTop: '8px', padding: '6px 12px', background: 'var(--gold)', color: '#000', borderRadius: '4px', textDecoration: 'none', fontWeight: 700, fontSize: '0.6rem' }}>OBTENIR MA CLÉ →</a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
-      {/* Welcome modal */}
       {show && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 9999,
-          background: 'rgba(5,6,10,0.85)', backdropFilter: 'blur(6px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{
-            background: 'var(--card)', border: '1px solid var(--gold)',
-            borderRadius: 20, padding: '2.5rem', maxWidth: 480, width: '90%',
-            boxShadow: '0 0 60px rgba(212,168,83,0.15)', textAlign: 'center'
-          }}>
-            <div style={{
-              width: 56, height: 56, margin: '0 auto 1.2rem',
-              background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))',
-              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '1.4rem'
-            }}>⬡</div>
-            <h2 style={{ fontSize: '1.6rem', marginBottom: '0.6rem' }}>Bienvenue sur IRIS</h2>
-            <p style={{ color: 'var(--text2)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '0.8rem' }}>
-              Votre CV passe-t-il les filtres ATS ? Analyse IA, comparaison multi-ATS, 26 thèmes PDF et matching d\'offres en temps réel.
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(5,6,10,0.9)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="animate-in" style={{ background: 'var(--card)', border: '1px solid var(--gold)', borderRadius: 24, padding: '2.5rem', maxWidth: 600, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 0 80px rgba(212,168,83,0.2)', textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, margin: '0 auto 1.5rem', background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', boxShadow: '0 0 20px var(--gold-glow)' }}>⧡</div>
+            <h2 style={{ fontSize: '1.8rem', marginBottom: '0.8rem', fontWeight: 900 }}>Besoin d'un coup de pouce ?</h2>
+            <p style={{ color: 'var(--text2)', fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '2rem' }}>
+              IRIS est un outil gratuit conçu pour t'aider à mieux comprendre comment ton CV est lu par les entreprises. On va t'aider à l'optimiser simplement.
             </p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1.5rem', fontSize: '0.72rem', color: 'var(--text3)' }}>
-              <span>📊 Audit ATS</span><span>·</span>
-              <span>🤖 Simulateur multi-ATS</span><span>·</span>
-              <span>🎨 26 thèmes PDF</span><span>·</span>
-              <span>💼 Smart Job Matcher</span>
+
+            <div style={{ textAlign: 'left', marginBottom: '2rem' }}>
+              <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--text3)', marginBottom: '12px', fontWeight: 700 }}>🛠️ Configuration des Clés API</div>
+              <ApiGuide 
+                id="groq" title="⚡ GROQ (Le plus rapide - Gratuit)" 
+                steps={['Ouvre Groq Cloud', 'Connecte-toi', 'Crée une clé dans "API Keys"', 'Copie-la dans la barre latérale']}
+                link="https://console.groq.com/keys" format="gsk_xxxx..." 
+              />
+              <ApiGuide 
+                id="google" title="🔷 GOOGLE AI (Gemini - Gratuit)" 
+                steps={['Ouvre Google AI Studio', 'Clique sur "Get API key"', 'Copie-la dans la barre latérale']}
+                link="https://aistudio.google.com/app/apikey" format="AIzaSy..." 
+              />
+              <ApiGuide 
+                id="mistral" title="🌊 MISTRAL AI (IA Française - Gratuit)" 
+                steps={['Ouvre Mistral Console', 'Va dans "API Keys"', 'Copie-la dans la barre latérale']}
+                link="https://console.mistral.ai/api-keys/" format="xxxxx..." 
+              />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: '1.5rem' }}>
-              <button
-                onClick={startDemo}
-                style={{
-                  background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))',
-                  color: '#05060a', border: 'none', borderRadius: 8,
-                  padding: '0.85rem 1.8rem', fontFamily: 'Space Mono, monospace',
-                  fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(212, 168, 83, 0.3)'
-                }}
-              >
-                🎯 Démo Complète (CV pré-chargé + Tour)
-              </button>
-              <button
-                onClick={startTour}
-                style={{
-                  background: 'transparent',
-                  color: 'var(--gold)', border: '1px solid var(--gold)', borderRadius: 8,
-                  padding: '0.75rem 1.8rem', fontFamily: 'Space Mono, monospace',
-                  fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', cursor: 'pointer'
-                }}
-              >
-                ▶ Visite Guidée (Mon propre CV)
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <button
-                onClick={skip}
-                style={{
-                  background: 'transparent', color: 'var(--text3)',
-                  border: 'none', borderRadius: 8,
-                  padding: '0.5rem 1rem', fontFamily: 'Space Mono, monospace',
-                  fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.1em',
-                  textTransform: 'uppercase', cursor: 'pointer'
-                }}
-              >
-                Passer
-              </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button onClick={startDemo} style={{ background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', color: '#000', border: 'none', borderRadius: '12px', padding: '1.2rem', fontFamily: 'Space Mono, monospace', fontSize: '0.8rem', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 25px rgba(212, 168, 83, 0.5)' }}>🚀 DÉMARRER LA DÉMO COMPLÈTE</button>
+              <button onClick={skip} style={{ background: 'transparent', color: 'var(--text3)', border: 'none', padding: '0.5rem', fontSize: '0.65rem', cursor: 'pointer' }}>Passer la visite</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tour overlay */}
       {active && (
         <>
-          {/* Dark overlay with hole */}
           <div ref={overlayRef} style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none' }}>
             {rect && (
               <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0 }}>
-                <defs>
-                  <mask id="hole">
-                    <rect width="100%" height="100%" fill="white" />
-                    <rect
-                      x={rect.left - PAD} y={rect.top - PAD}
-                      width={rect.width + PAD * 2} height={rect.height + PAD * 2}
-                      rx={8} fill="black"
-                    />
-                  </mask>
-                </defs>
-                <rect width="100%" height="100%" fill="rgba(5,6,10,0.75)" mask="url(#hole)" />
-                <rect
-                  x={rect.left - PAD} y={rect.top - PAD}
-                  width={rect.width + PAD * 2} height={rect.height + PAD * 2}
-                  rx={8} fill="none" stroke="var(--gold)" strokeWidth={2}
-                  style={{ filter: 'drop-shadow(0 0 8px rgba(212,168,83,0.6))' }}
-                />
+                <defs><mask id="hole"><rect width="100%" height="100%" fill="white" /><rect x={rect.left - PAD} y={rect.top - PAD} width={rect.width + PAD * 2} height={rect.height + PAD * 2} rx={12} fill="black" /></mask></defs>
+                <rect width="100%" height="100%" fill="rgba(5,6,10,0.85)" mask="url(#hole)" />
+                <rect x={rect.left - PAD} y={rect.top - PAD} width={rect.width + PAD * 2} height={rect.height + PAD * 2} rx={12} fill="none" stroke="var(--gold)" strokeWidth={3} style={{ filter: 'drop-shadow(0 0 12px var(--gold-glow))' }} />
               </svg>
             )}
           </div>
 
-          {/* Tooltip */}
-          <div style={{
-            ...tooltipStyle(),
-            background: 'var(--card)', border: '1px solid var(--gold)',
-            borderRadius: 14, padding: '1.4rem',
-            boxShadow: '0 8px 40px rgba(212,168,83,0.2)',
-            pointerEvents: 'all'
-          }}>
-            {/* Step indicator */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: '1rem' }}>
-              {STEPS.map((_, i) => (
-                <div key={i} style={{
-                  flex: 1, height: 3, borderRadius: 2,
-                  background: i <= step ? 'var(--gold)' : 'var(--border)',
-                  transition: 'background 0.3s'
-                }} />
-              ))}
+          <div style={{ ...tooltipStyle(), background: 'var(--card)', border: '1px solid var(--gold)', borderRadius: 20, padding: '1.5rem', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', pointerEvents: 'all' }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: '1.2rem' }}>
+              {STEPS.map((_, i) => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= step ? 'var(--gold)' : 'var(--border)', transition: 'background 0.3s' }} />)}
             </div>
-
-            <div style={{
-              fontFamily: 'Space Mono, monospace', fontSize: '0.52rem',
-              letterSpacing: '0.16em', textTransform: 'uppercase',
-              color: 'var(--gold)', marginBottom: '0.5rem'
-            }}>
-              Étape {step + 1} / {STEPS.length}
-            </div>
-            <h3 style={{ fontSize: '1rem', marginBottom: '0.6rem', color: 'var(--text)' }}>
-              {STEPS[step].title}
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text2)', lineHeight: 1.6, marginBottom: '1.2rem' }}>
-              {STEPS[step].desc}
-            </p>
-
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '0.8rem', color: 'var(--text)', fontWeight: 800 }}>{STEPS[step].title}</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text2)', lineHeight: 1.6, marginBottom: '1.5rem' }}>{STEPS[step].desc}</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button
-                onClick={prev}
-                disabled={step === 0}
-                style={{
-                  background: 'transparent', color: step === 0 ? 'var(--text3)' : 'var(--text)',
-                  border: '1px solid var(--border)', borderRadius: 6,
-                  padding: '0.5rem 1rem', fontFamily: 'Space Mono, monospace',
-                  fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase',
-                  cursor: step === 0 ? 'not-allowed' : 'pointer', opacity: step === 0 ? 0.4 : 1
-                }}
-              >
-                ← Préc.
-              </button>
-              <button onClick={finish} style={{
-                background: 'transparent', color: 'var(--text3)', border: 'none',
-                fontFamily: 'Space Mono, monospace', fontSize: '0.55rem',
-                letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer'
-              }}>
-                Quitter
-              </button>
-              <button
-                onClick={next}
-                style={{
-                  background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))',
-                  color: '#05060a', border: 'none', borderRadius: 6,
-                  padding: '0.5rem 1rem', fontFamily: 'Space Mono, monospace',
-                  fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em',
-                  textTransform: 'uppercase', cursor: 'pointer'
-                }}
-              >
-                {step === STEPS.length - 1 ? 'Terminer ✓' : 'Suiv. →'}
+              <button onClick={prev} disabled={step === 0 || waiting} style={{ background: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.6rem 1.2rem', fontSize: '0.6rem', cursor: (step === 0 || waiting) ? 'not-allowed' : 'pointer', opacity: (step === 0 || waiting) ? 0.4 : 1 }}>← Préc.</button>
+              <button onClick={next} disabled={waiting} style={{ background: 'linear-gradient(135deg, var(--gold), var(--gold-bright))', color: '#000', border: 'none', borderRadius: 8, padding: '0.6rem 1.2rem', fontSize: '0.65rem', fontWeight: 800, cursor: waiting ? 'wait' : 'pointer' }}>
+                {waiting ? 'Chargement...' : step === STEPS.length - 1 ? 'C\'est parti !' : 'Suivant →'}
               </button>
             </div>
           </div>

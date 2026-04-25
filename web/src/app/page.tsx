@@ -8,7 +8,7 @@ import SimplePDFEditor from './SimplePDFEditor';
 import CVComparison from './CVComparison';
 import dynamic from 'next/dynamic';
 
-const JobMap = dynamic(() => import('./JobMap'), { 
+const JobMap = dynamic(() => import('./JobMap'), {
   ssr: false,
   loading: () => <div style={{ height: '350px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)' }}>Initialisation du moteur SIG...</div>
 });
@@ -321,6 +321,8 @@ export default function Home() {
     });
     setEditedCvDataJSON(JSON.stringify(cleanCvData, null, 2));
     setPdfData(null);
+    // 🚀 Auto-generate PDF for the demo
+    setTimeout(() => handleGeneratePdf(cleanCvData), 300);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -360,17 +362,17 @@ export default function Home() {
       while (!completed) {
         // Wait 2.5 seconds between polls
         await new Promise(r => setTimeout(r, 2500));
-        
+
         const pollRes = await fetch(`/api/analyze?jobId=${jobId}`);
         if (!pollRes.ok) throw new Error('Failed to check status');
-        
+
         const job = await pollRes.json();
         setAnalysisProgress(job.progress || '');
 
         if (job.status === 'completed') {
           const data = job.result;
           setAnalysisResult(data);
-          
+
           const newKeywords = data.missing_keywords || [];
           if (newKeywords.length > 0) {
             setAtsKeywords(prev => Array.from(new Set([...prev, ...newKeywords])));
@@ -589,6 +591,9 @@ export default function Home() {
           <div className="brand-text">
             <div className="brand-name">IRIS</div>
             <div className="brand-tag">Resume Intelligence v4.1</div>
+            <a href="https://github.com/her0-00/IRIS---Improve-Resume-Intelligence-Studio" target="_blank" rel="noopener" style={{ fontSize: '0.55rem', color: 'var(--gold)', textDecoration: 'none', opacity: 0.7, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+              <Globe size={10} /> GitHub Open Source ↗
+            </a>
           </div>
         </div>
 
@@ -724,25 +729,45 @@ export default function Home() {
 
         <div className={`sidebar-body${sidebarOpen ? '' : ' collapsed'}`}>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div className="plan-badge" style={{ flex: 1 }}>◈ Pro Plan Active</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0', marginTop: '0' }}>
             <button
+              data-tour="reset-tour"
               onClick={() => (window as any).__resetTour?.()}
-              title="Relancer la visite guidée"
               style={{
-                background: 'transparent', border: '1px solid var(--border)',
-                borderRadius: 6, padding: '5px 8px', marginLeft: 8,
-                color: 'var(--text3)', cursor: 'pointer', fontSize: '0.75rem',
-                transition: 'all 0.2s', flexShrink: 0
+                background: 'rgba(212, 168, 83, 0.05)',
+                border: '1px solid rgba(212, 168, 83, 0.2)',
+                borderRadius: '20px',
+                padding: '5px 12px',
+                color: 'var(--gold)',
+                cursor: 'pointer',
+                fontSize: '0.62rem',
+                fontFamily: 'Space Mono, monospace',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
               }}
-              onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'var(--gold)'; (e.target as HTMLElement).style.color = 'var(--gold)'; }}
-              onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'var(--border)'; (e.target as HTMLElement).style.color = 'var(--text3)'; }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212, 168, 83, 0.15)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'var(--gold)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 0 15px rgba(212, 168, 83, 0.2)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = 'rgba(212, 168, 83, 0.05)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(212, 168, 83, 0.2)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+              }}
             >
-              ?
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', boxShadow: '0 0 4px var(--gold)' }}></div>
+              GUIDE
             </button>
           </div>
 
-          <div>
+          <div data-tour="api-provider">
             <div className="slabel">/ AI Provider</div>
             <div style={{ display: 'flex', gap: '6px', marginBottom: '1rem' }}>
               {(['groq', 'mistral', 'google'] as const).map(provider => (
@@ -810,15 +835,15 @@ export default function Home() {
             </div>
           </div>
 
-          <div style={{ 
-            background: 'rgba(52, 211, 153, 0.1)', 
-            border: '1px solid #10B981', 
-            borderRadius: '8px', 
-            padding: '10px', 
-            marginBottom: '1rem', 
-            fontSize: '0.65rem', 
-            color: 'var(--text2)', 
-            display: 'flex', 
+          <div style={{
+            background: 'rgba(52, 211, 153, 0.1)',
+            border: '1px solid #10B981',
+            borderRadius: '8px',
+            padding: '10px',
+            marginBottom: '1rem',
+            fontSize: '0.65rem',
+            color: 'var(--text2)',
+            display: 'flex',
             gap: '8px',
             lineHeight: '1.4'
           }}>
@@ -829,7 +854,12 @@ export default function Home() {
             </div>
           </div>
 
-          <button className="btn-primary" onClick={handleAnalyze} disabled={isAnalyzing || (!cvText && !file)}>
+          <button
+            data-tour="launch-audit"
+            className="btn-primary"
+            onClick={handleAnalyze}
+            disabled={isAnalyzing || (!cvText && !file)}
+          >
             {isAnalyzing ? (analysisProgress || "Analyzing...") : "⬡ LAUNCH AUDIT"}
           </button>
 
@@ -1043,13 +1073,13 @@ export default function Home() {
 
             {/* TABS MENU */}
             <div className="tabs">
-              <button className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>⬡ Audit</button>
-              <button className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setActiveTab('sections')}>◈ Sections</button>
-              <button className={`tab ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')}>✏️ Content</button>
-              <button className={`tab ${activeTab === 'compare' ? 'active' : ''}`} onClick={() => setActiveTab('compare')}>📊 Compare & ATS</button>
+              <button data-tour="audit-tab" className={`tab ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>⬡ Audit</button>
+              <button data-tour="sections-tab" className={`tab ${activeTab === 'sections' ? 'active' : ''}`} onClick={() => setActiveTab('sections')}>◈ Sections</button>
+              <button data-tour="edit-tab" className={`tab ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')}>✏️ Content</button>
+              <button data-tour="compare-tab" className={`tab ${activeTab === 'compare' ? 'active' : ''}`} onClick={() => setActiveTab('compare')}>📊 Compare & ATS</button>
               <button data-tour="pdf-tab" className={`tab ${activeTab === 'pdf' ? 'active' : ''}`} onClick={() => setActiveTab('pdf')}>🎨 CV PDF Export</button>
-              <button className={`tab ${activeTab === 'jobs' ? 'active' : ''}`} onClick={() => setActiveTab('jobs')}>💼 Jobs offer</button>
-              <button className={`tab ${activeTab === 'tips' ? 'active' : ''}`} onClick={() => setActiveTab('tips')}>💡 Pro Tips</button>
+              <button data-tour="jobs-tab" className={`tab ${activeTab === 'jobs' ? 'active' : ''}`} onClick={() => setActiveTab('jobs')}>💼 Jobs offer</button>
+              <button data-tour="tips-tab" className={`tab ${activeTab === 'tips' ? 'active' : ''}`} onClick={() => setActiveTab('tips')}>💡 Pro Tips</button>
             </div>
 
             {/* TAB: AUDIT */}
@@ -1066,9 +1096,9 @@ export default function Home() {
                       {showAnalysisSource ? "🙈 HIDE SOURCE" : "📄 VIEW SOURCE REFERENCES"}
                     </button>
                   </div>
-                  <p className="verdict-text" style={{ fontStyle: 'italic', marginBottom: '1.2rem' }}>"{analysisResult.market_value_verdict}"</p>
+                  <p data-tour="market-verdict" className="verdict-text" style={{ fontStyle: 'italic', marginBottom: '1.2rem' }}>"{analysisResult.market_value_verdict}"</p>
 
-                  <div className="ins cyan">
+                  <div data-tour="top-strength" className="ins cyan">
                     <div className="ins-l">Top Strength</div>
                     <p>{analysisResult.top_strength}</p>
                     {analysisResult.grounding?.top_strength && (
@@ -1101,7 +1131,7 @@ export default function Home() {
                       )
                     )}
                   </div>
-                  <div className="ins danger">
+                  <div data-tour="risk-audit" className="ins danger">
                     <div className="ins-l">Why you might be ignored</div>
                     <p>{analysisResult.psychology?.pourquoi_ignore}</p>
                     {analysisResult.grounding?.pourquoi_ignore && (
@@ -1286,7 +1316,7 @@ export default function Home() {
                   });
 
                   return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+                    <div data-tour="semantic-audit" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
                       <div className="card-hd" style={{ fontSize: '0.9rem', margin: 0, paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>🔍 Analyse Différentielle Sémantique</div>
 
                       {/* VALIDATED (PRESENT) */}
@@ -1757,7 +1787,7 @@ export default function Home() {
                 <div className="ins cyan" style={{ marginBottom: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid #10B981' }}>
                   <div className="ins-l" style={{ color: '#10B981' }}>🔐 Note sur la Confidentialité</div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text1)' }}>
-                    Vos informations personnelles (Nom, Email, Tél, Liens) ont été remplacées par des valeurs fictives pour protéger votre vie privée pendant l'analyse IA. 
+                    Vos informations personnelles (Nom, Email, Tél, Liens) ont été remplacées par des valeurs fictives pour protéger votre vie privée pendant l'analyse IA.
                     <strong style={{ color: '#10B981' }}> N'oubliez pas de remettre vos vraies coordonnées dans le JSON ci-dessous avant d'exporter votre PDF !</strong>
                   </p>
                 </div>
@@ -1960,6 +1990,7 @@ export default function Home() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
                       <button
+                        data-tour="job-search-btn"
                         className="btn-primary"
                         disabled={isSearchingJobs}
                         style={{ marginLeft: 'auto', background: 'var(--gold)', color: '#000', fontWeight: 800, minWidth: '150px' }}
@@ -1980,16 +2011,16 @@ export default function Home() {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
-                                  keywords: jobSearchQuery,
-                                  location: jobSearchLocation,
-                                  appId: adzunaAppId,
-                                  appKey: adzunaAppKey,
-                                  contractType: jobSearchContractType,
-                                  company: jobSearchCompany,
-                                  max_days_old: jobSearchMaxDays,
-                                  sort_by: jobSearchSortBy,
-                                  country: finalCountry
-                                })
+                                keywords: jobSearchQuery,
+                                location: jobSearchLocation,
+                                appId: adzunaAppId,
+                                appKey: adzunaAppKey,
+                                contractType: jobSearchContractType,
+                                company: jobSearchCompany,
+                                max_days_old: jobSearchMaxDays,
+                                sort_by: jobSearchSortBy,
+                                country: finalCountry
+                              })
                             });
                             const data = await res.json();
                             if (data.error) throw new Error(data.error);
@@ -2115,10 +2146,10 @@ export default function Home() {
                 {/* RESULTS LIST */}
                 <div style={{ display: 'grid', gap: '15px' }}>
                   {jobMatches.length > 0 && (
-                    <div className="animate-in" style={{ 
-                      padding: '2.5rem 1.5rem', 
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.1) 100%)', 
-                      border: '1px solid var(--border)', 
+                    <div className="animate-in" style={{
+                      padding: '2.5rem 1.5rem',
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.1) 100%)',
+                      border: '1px solid var(--border)',
                       borderRadius: 'var(--r-lg)',
                       marginBottom: '1rem',
                       overflow: 'hidden'
@@ -2134,13 +2165,13 @@ export default function Home() {
                           LIVE GEOLOCATION ACTIVE
                         </div>
                       </div>
-                      
-                      <div style={{ 
-                        width: '100%', 
-                        display: jobMatches.length > 0 ? 'block' : 'none' 
+
+                      <div style={{
+                        width: '100%',
+                        display: jobMatches.length > 0 ? 'block' : 'none'
                       }}>
-                        <div style={{ position: 'relative', width: '100%', height: 'var(--map-height, 520px)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
-                           <JobMap jobs={jobMatches} />
+                        <div data-tour="job-map" style={{ position: 'relative', width: '100%', height: 'var(--map-height, 520px)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <JobMap jobs={jobMatches} />
                         </div>
                       </div>
                     </div>
@@ -2201,11 +2232,11 @@ export default function Home() {
                         "{job.description}"
                       </p>
 
-                      <div style={{ 
-                        marginTop: '1.2rem', 
-                        padding: '1rem', 
-                        border: '1px dashed ' + (job._matchScore >= 75 ? 'var(--green)' : job._matchScore >= 50 ? 'var(--amber)' : 'var(--gold)'), 
-                        borderRadius: '8px', 
+                      <div style={{
+                        marginTop: '1.2rem',
+                        padding: '1rem',
+                        border: '1px dashed ' + (job._matchScore >= 75 ? 'var(--green)' : job._matchScore >= 50 ? 'var(--amber)' : 'var(--gold)'),
+                        borderRadius: '8px',
                         background: (job._matchScore >= 75 ? 'rgba(82, 201, 122, 0.05)' : job._matchScore >= 50 ? 'rgba(232, 160, 48, 0.05)' : 'rgba(200, 169, 110, 0.05)'),
                         position: 'relative'
                       }}>
@@ -2267,7 +2298,7 @@ export default function Home() {
                 <div className="ins cyan" style={{ marginBottom: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid #10B981' }}>
                   <div className="ins-l" style={{ color: '#10B981' }}>🔐 Rappel Confidentialité</div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text1)' }}>
-                    L'IA a utilisé des coordonnées fictives pour protéger votre vie privée pendant l'analyse. 
+                    L'IA a utilisé des coordonnées fictives pour protéger votre vie privée pendant l'analyse.
                     <strong style={{ color: '#10B981' }}> N'oubliez pas de rétablir vos vraies coordonnées (Nom, Email, Tél) via le "Mode Édition Visuelle" ou l'onglet "Content" pour votre PDF final.</strong>
                   </p>
                 </div>
@@ -2302,7 +2333,12 @@ export default function Home() {
                           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{cat.label}</div>
                           <div className="theme-carousel" style={{ flexWrap: 'wrap', gap: '8px' }}>
                             {cat.themes.map(t => (
-                              <div key={t.name} className={`theme-card ${selectedTheme === t.name ? 'active' : ''}`} onClick={() => { setSelectedTheme(t.name); setPdfData(null); }}>
+                              <div
+                                key={t.name}
+                                data-tour={t.name === 'Executive' ? 'theme-executive' : undefined}
+                                className={`theme-card ${selectedTheme === t.name ? 'active' : ''}`}
+                                onClick={() => { setSelectedTheme(t.name); setPdfData(null); }}
+                              >
                                 <div className="theme-preview" style={{ background: t.color, border: `2px solid ${t.accent}`, position: 'relative' }}>
                                   <div style={{ position: 'absolute', bottom: 2, right: 2, width: 10, height: 10, borderRadius: '50%', background: t.accent }}></div>
                                 </div>
@@ -2318,12 +2354,12 @@ export default function Home() {
                 </div>
 
                 {/* CV STUDIO CUSTOMIZATION PANEL */}
-                <div className="custom-panel" data-tour="customization">
-                  <div className="custom-panel-header" onClick={() => setCustomOpen(!customOpen)}>
+                <div className="custom-panel" data-tour="customization" data-open={customOpen}>
+                  <div className="custom-panel-header" data-tour="customization-header" onClick={() => setCustomOpen(!customOpen)}>
                     <h4><span>✨</span> CV Studio Customization</h4>
                     <span className={`toggle-icon ${customOpen ? 'open' : ''}`}>▼</span>
                   </div>
-                  <div className={`custom-panel-body ${customOpen ? 'open' : ''}`}>
+                  <div data-tour="customization-body" className={`custom-panel-body ${customOpen ? 'open' : ''}`}>
                     {/* NEW BRAND IDENTITY SECTION */}
                     <div style={{ fontSize: '0.48rem', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>AI Brand Identity</div>
                     <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -2507,7 +2543,7 @@ export default function Home() {
                 </div>
 
                 {!pdfData ? (
-                  <div className="card pdf-generate-card" style={{ textAlign: 'center' }}>
+                  <div className="card pdf-generate-card" data-tour="pdf-placeholder" style={{ textAlign: 'center' }}>
                     <LayoutTemplate size={48} opacity={0.3} style={{ margin: '0 auto 1rem', color: 'var(--gold)' }} />
                     <h3 style={{ marginBottom: '1rem' }}>Generate Studio PDF</h3>
                     <p style={{ color: 'var(--text2)', marginBottom: '2rem', maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
@@ -2520,7 +2556,7 @@ export default function Home() {
                 ) : (
                   <>
                     {visualEditMode ? (
-                      <div style={{ height: '800px', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
+                      <div className="simple-pdf-editor" style={{ height: '800px', border: '1px solid var(--border)', borderRadius: 'var(--r-lg)', overflow: 'hidden' }}>
                         <SimplePDFEditor
                           cvData={editedCvDataJSON ? JSON.parse(editedCvDataJSON) : (analysisResult?._cv_data || cvExamples.marketing.cv_data)}
                           onUpdate={(newData) => {
@@ -2546,7 +2582,7 @@ export default function Home() {
                             ⛶ FULLSCREEN
                           </button>
                         </div>
-                        <div className={`cv-preview ${isFullscreenUI ? 'pseudo-fullscreen' : ''}`} style={{ padding: 0, background: 'var(--surface)', position: 'relative', overflow: 'hidden' }}>
+                        <div data-tour="pdf-preview-container" className={`cv-preview ${isFullscreenUI ? 'pseudo-fullscreen' : ''}`} style={{ padding: 0, background: 'var(--surface)', position: 'relative', overflow: 'hidden' }}>
                           {isFullscreenUI && (
                             <button className="fullscreen-close-btn" onClick={() => setIsFullscreenUI(false)}>
                               ✕ Fermer le plein écran
@@ -2564,6 +2600,7 @@ export default function Home() {
                     )}
                     <div className="pdf-actions" style={{ marginTop: '1.5rem', textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '15px', flexWrap: 'wrap' }}>
                       <button
+                        data-tour="visual-edit-toggle"
                         className={`btn-outline ${visualEditMode ? '' : 'visual-edit-toggle'}`}
                         onClick={() => setVisualEditMode(!visualEditMode)}
                         style={{ maxWidth: '300px' }}
@@ -2632,7 +2669,7 @@ export default function Home() {
         )}
 
         {/* PERSISTENT FOOTER - PROFESSIONAL PRIVACY SHIELD */}
-        <footer style={{
+        <footer data-tour="privacy-footer" style={{
           marginTop: '5rem',
           padding: '4rem 2rem',
           borderTop: '2px solid var(--border)',
@@ -2642,7 +2679,7 @@ export default function Home() {
         }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
 
-            <div style={{
+            <div data-tour="privacy-shield-header" style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -2687,7 +2724,7 @@ export default function Home() {
                   <h3 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0 }}>Flux Chiffrés Cloud</h3>
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text2)', lineHeight: '1.6' }}>
-                  <strong>Transit TLS 1.3 :</strong> Les analyses IA transitent via tunnel sécurisé vers les infrastructures de <strong>Groq</strong>, <strong>Google</strong> ou <strong>Mistral AI</strong> selon le modèle sélectionné. 
+                  <strong>Transit TLS 1.3 :</strong> Les analyses IA transitent via tunnel sécurisé vers les infrastructures de <strong>Groq</strong>, <strong>Google</strong> ou <strong>Mistral AI</strong> selon le modèle sélectionné.
                   Vos photos sont encodées localement et aucun résiduel disque n'est conservé.
                 </p>
               </div>
@@ -2698,7 +2735,7 @@ export default function Home() {
                   <h3 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0 }}>SIG & Géolocalisation</h3>
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text2)', lineHeight: '1.6' }}>
-                  <strong>Respect de l'Anonymat :</strong> La recherche Adzuna et la cartographie CartoDB n'utilisent que les mots-clés saisis. 
+                  <strong>Respect de l'Anonymat :</strong> La recherche Adzuna et la cartographie CartoDB n'utilisent que les mots-clés saisis.
                   Aucun traçage GPS permanent n'est activé sur votre compte.
                 </p>
               </div>
@@ -2709,7 +2746,7 @@ export default function Home() {
                   <h3 style={{ fontSize: '0.85rem', fontWeight: 800, margin: 0 }}>Souveraineté des Données</h3>
                 </div>
                 <p style={{ fontSize: '0.78rem', color: 'var(--text2)', lineHeight: '1.6' }}>
-                  <strong>Contrôle Local :</strong> Votre CV et vos clés API sont stockés dans le <strong>LocalStorage</strong> de votre navigateur. 
+                  <strong>Contrôle Local :</strong> Votre CV et vos clés API sont stockés dans le <strong>LocalStorage</strong> de votre navigateur.
                   Vous êtes l'unique propriétaire de ces informations à tout instant.
                 </p>
               </div>
@@ -2731,15 +2768,15 @@ export default function Home() {
                 <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#EF4444', margin: '0 0 5px 0' }}>CENTRE DE PURGE SÉCURISÉ</h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text2)', margin: 0 }}>Cliquez pour effacer instantanément toute trace de votre passage sur ce terminal.</p>
               </div>
-              <button 
+              <button
                 onClick={handleNuclearPurge}
                 className="btn-danger"
-                style={{ 
-                  padding: '10px 24px', 
-                  fontSize: '0.75rem', 
-                  fontWeight: 800, 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                style={{
+                  padding: '10px 24px',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '10px',
                   background: 'linear-gradient(135deg, #EF4444 0%, #991B1B 100%)',
                   boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
@@ -2748,7 +2785,7 @@ export default function Home() {
                 <Trash2 size={16} /> PURGER LES DONNÉES LOCALES
               </button>
             </div>
-            <div style={{
+            <div data-tour="footer-privacy" style={{
               borderTop: '1px solid var(--border)',
               paddingTop: '2rem',
               display: 'flex',
@@ -2769,8 +2806,8 @@ export default function Home() {
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={12} style={{ color: 'var(--green)' }} /> In-Memory Processing</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle2 size={12} style={{ color: 'var(--green)' }} /> ISO 27001 Ready</span>
               </div>
-              <div style={{ fontSize: '0.6rem', opacity: 0.4, color: 'var(--text3)' }}>
-                IRIS © 2026 — IMPROVE RESUME  INTELLIGENCE STUDIO — Hébergement Sécurisé via Render
+              <div style={{ fontSize: '0.6rem', opacity: 0.6, color: 'var(--text3)', marginTop: '0.5rem' }}>
+                <a href="https://github.com/her0-00/IRIS---Improve-Resume-Intelligence-Studio" target="_blank" rel="noopener" style={{ color: 'var(--gold)', textDecoration: 'none' }}>⭐ Star on GitHub</a> — IRIS © 2026 — IMPROVE RESUME INTELLIGENCE STUDIO — Hébergement Sécurisé via Render
               </div>
             </div>
 
