@@ -4,7 +4,7 @@
 
 75% of applications are rejected by automated bots before a human ever sees them. IRIS is a high-performance utility designed to audit, rewrite, and export your CV so it bypasses tracking systems (ATS) and lands directly on a recruiter's desk.
 
-🌐 **Live Demo**: [https://iris.onrender.com/](https://iris.onrender.com/)
+🌐 **Live Demo**: [https://iris.onrender.com/](https://riis.onrender.com/)
 
 ![IRIS Home Interface](home.png)
 
