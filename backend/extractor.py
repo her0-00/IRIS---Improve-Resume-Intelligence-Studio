@@ -17,8 +17,11 @@ def main():
             pdf_bytes = sys.stdin.read().encode('latin-1')
             
         if not pdf_bytes:
-            print(json.dumps({"success": False, "error": "No input provided"}), flush=True)
-            sys.exit(1)
+            print(json.dumps({
+                "success": False, 
+                "error": "Aucune donnée n'a été reçue. Veuillez réessayer d'uploader le fichier."
+            }), flush=True)
+            sys.exit(0)
 
         text = ""
         links = set()
@@ -31,10 +34,22 @@ def main():
                     text += page_text + "\n"
                 
                 # Extract hidden hyperlinks (URIs)
-                for link in page.hyperlinks:
-                    uri = link.get('uri')
-                    if uri and (uri.startswith('http') or uri.startswith('mailto')):
-                        links.add(uri)
+                try:
+                    for link in page.hyperlinks:
+                        uri = link.get('uri')
+                        if uri and (uri.startswith('http') or uri.startswith('mailto')):
+                            links.add(uri)
+                except Exception as e:
+                    # Capture warning but don't fail the whole process
+                    pass
+
+        # Check if any text was extracted
+        if not text.strip():
+            print(json.dumps({
+                "success": False, 
+                "error": "Le document semble être vide ou illisible. Impossibilité de lancer l'analyse."
+            }), flush=True)
+            sys.exit(0)
 
         # Append hidden links to text for AI visibility
         if links:
@@ -66,8 +81,19 @@ def main():
         print(json.dumps({"success": True, "text": text}), flush=True)
 
     except Exception as e:
-        print(json.dumps({"success": False, "error": str(e), "traceback": traceback.format_exc()}), flush=True)
-        sys.exit(1)
+        error_msg = str(e)
+        # Check for common PDF errors to give a clearer message
+        if "not a valid PDF" in error_msg.lower() or "cannot find descriptor" in error_msg.lower():
+            friendly_msg = f"Le fichier n'est pas un PDF valide ou est protégé. Impossibilité de lancer l'analyse. (Erreur: {error_msg})"
+        else:
+            friendly_msg = f"Erreur lors de l'extraction : {error_msg}. Impossibilité de lancer l'analyse."
+            
+        print(json.dumps({
+            "success": False, 
+            "error": friendly_msg, 
+            "traceback": traceback.format_exc()
+        }), flush=True)
+        sys.exit(0) # Exit 0 so the JSON is caught by route.ts correctly without being treated as a process crash if it's a "handled" error
 
 if __name__ == "__main__":
     main()

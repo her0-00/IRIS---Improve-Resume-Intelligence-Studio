@@ -117,6 +117,36 @@ function extractJson(text: string): any {
   throw new Error('Incomplete JSON object in model response');
 }
 
+/**
+ * Format AI technical errors into user-friendly messages.
+ */
+function formatAiError(err: any, provider: string): string {
+  const msg = (err.message || String(err)).toLowerCase();
+  
+  // Specific check for the 'undici' / fetch failed bug on invalid keys
+  if (msg.includes('fetch failed') || msg.includes('expected non-null body source') || msg.includes('unable to make request')) {
+    return `La clé API ${provider} semble invalide ou un problème de connexion est survenu. Veuillez vérifier votre clé et votre connexion internet.`;
+  }
+  
+  if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid api key') || msg.includes('authentication')) {
+    return `La clé API ${provider} est invalide ou expirée.`;
+  }
+  
+  if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many requests')) {
+    return `Limite de requêtes atteinte pour ${provider}. Veuillez patienter quelques instants ou vérifier vos quotas.`;
+  }
+
+  if (msg.includes('timeout')) {
+    return `Le service ${provider} est trop lent à répondre (timeout). Veuillez réessayer.`;
+  }
+
+  if (msg.includes('500') || msg.includes('502') || msg.includes('503') || msg.includes('504')) {
+    return `Le service ${provider} rencontre actuellement des difficultés techniques.`;
+  }
+
+  return `Erreur ${provider} : ${err.message || 'Problème inconnu'}`;
+}
+
 const GROQ_MODELS = [
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
@@ -561,7 +591,9 @@ IMPORTANT: The output language is ${outputLang.toUpperCase()}. Translate ALL rol
   } catch (err: any) {
     console.error(`[JOB-FAILED][${jobId}]`, err);
     job.status = 'failed';
-    job.error = err.message || 'Analysis failed';
+    // Provide a user-friendly error message based on the provider
+    const provider = params.ai_provider || 'groq';
+    job.error = formatAiError(err, provider.charAt(0).toUpperCase() + provider.slice(1));
   }
 }
 

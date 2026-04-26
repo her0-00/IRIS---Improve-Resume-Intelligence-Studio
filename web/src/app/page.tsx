@@ -322,6 +322,7 @@ export default function Home() {
     setEditedCvDataJSON(JSON.stringify(cleanCvData, null, 2));
     setPdfData(null);
     // 🚀 Auto-generate PDF for the demo
+    setActiveTab('audit');
     setTimeout(() => handleGeneratePdf(cleanCvData), 300);
   };
 
@@ -333,10 +334,17 @@ export default function Home() {
       formData.append('file', f);
       try {
         const res = await fetch('/api/extract', { method: 'POST', body: formData });
-        const { text } = await res.json();
-        setCvText(text);
-      } catch (err) {
+        const data = await res.json();
+        
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+        
+        setCvText(data.text || '');
+      } catch (err: any) {
         console.error(err);
+        alert("Erreur lors de l'extraction : " + err.message);
       }
     }
   };
@@ -345,6 +353,8 @@ export default function Home() {
     if (!cvText) return alert('No CV provided.');
     if (!apiKey) return alert('Please enter your Groq API Key.');
 
+    setAnalysisResult(null); // Return to primary vision (initial loading state)
+    setActiveTab('audit'); // Ensure we are on the audit tab for when it finishes
     setIsAnalyzing(true);
     setAnalysisProgress('Starting analysis...');
     setPdfData(null);
